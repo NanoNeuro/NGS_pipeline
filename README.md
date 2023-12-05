@@ -22,14 +22,17 @@ Samplesheet columns
 
 Directory structure [MIRAR CADA METODO Y ESTRUCTURA EN BASE A LA LÓGICA]
 -------------------
-data/
-    proyect_A/
+raw_data/
+    Experiment_1/
         FASTQ/
-            Sample1_R1.fastq.gz
-            Sample1_R2.fastq.gz
+            Exp1_Sample1_R1.fastq.gz
+            Exp1_Sample1_R2.fastq.gz
             ...
-        samplesheet.csv
-        project.config
+    Experiment_2/
+        FASTQ/
+            Exp2_Sample1_R1.fastq.gz
+            Exp2_Sample1_R2.fastq.gz
+            ...
 database/
     genomes/
         hg38/
@@ -45,6 +48,15 @@ database/
         mm10/
             bowtie2
             bowtie1
+projects/
+    project_A/
+        samplesheet.csv (Files from Exp1 and Exp2)
+        config.yml
+        analysis/
+            nb1.ipynb
+    project_B/
+        samplesheet.csv (Files from Exp1)
+        config.yml
 results/
     proyect_A/
         RNAseq/
@@ -52,13 +64,19 @@ results/
         taxprofiler/
 processing/
     proyect_A/
-        analysis1.ipynb
-        analysis2.ipynb
+        figures/
+        tables/
+        scripts/
+            analysis1.ipynb
+            analysis2.py
+            analysis3.R
 src/
     processing_functions/
+    notebook_functions/
     install/
         install.sh
         conda_env.yml
+    run_pipeline.sh
 README.md
 .gitconfig
 
