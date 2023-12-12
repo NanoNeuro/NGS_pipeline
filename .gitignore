@@ -1,0 +1,6 @@
+data/
+database/
+results/
+projects/
+.nextflow/
+.nextflow.log*
