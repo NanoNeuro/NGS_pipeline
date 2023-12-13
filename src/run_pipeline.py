@@ -6,6 +6,8 @@ from src.processing_functions.logging import setup_logger
 from processing_functions.generic_process import create_dirs
 from processing_functions.yaml_config import process_yaml_file
 
+# TODO: MIRAR LAS COLUMNAS OPCIONALES Y OBlIGATORIAS DE CADA ELEMENTO
+
 
 def main():
     # Set up command-line argument parsing
@@ -38,10 +40,21 @@ def main():
     # Create work and results dir for the project
     create_dirs(args=args)
     
+    
 
     # Parse config.yaml
-    process_yaml_file(yaml_file=f"projects/{args.project}/{args.yaml}")
-    
+    # TODO: COMPROBAR OUTPUTS
+    list_samplesheets, list_dbs_to_download, list_pipeline_commands = process_yaml_file(yaml_file=f"projects/{args.project}/{args.yaml}")
+
+
+    create_samplesheets(list_samplesheets)
+
+
+    download_DBs(list_dbs_to_download)
+
+
+    run_pipeline(list_pipeline_commands)
+
 
 
 
