@@ -37,12 +37,21 @@ wget https://genome-idx.s3.amazonaws.com/hisat/grch38_tran.tar.gz -O $CWD/databa
 tar xvf $CWD/database/index/GRCh38/HISAT2/grch38_tran.tar.gz -C $CWD/database/index/GRCh38/HISAT2
 rm $CWD/database/index/GRCh38/HISAT2/grch38_tran.tar.gz
 
-## SALMON
+
+## SALMON (DESARROLLAR)
 grep '^>' genome.fa | cut -d ' ' -f 1 | cut -d $'\t' -f 1 > decoys.txt
 salmon index -t athal.fa.gz --threads $task.cpus -d decoys.txt -i athal_index
 
-## RSEM
+## RSEM  (DESARROLLAR)
 rsem-prepare-reference --gtf $gtf --num-threads $task.cpus $fasta rsem/genome
+
+
+## KALLISTO (DESARROLLAR) 
+
+
+
+## CELLRANGER 
+curl -O "https://cf.10xgenomics.com/supp/cell-exp/refdata-gex-GRCh38-2020-A.tar.gz"
 
 
 
@@ -61,6 +70,28 @@ rm -r $DATABASE_DIR/genome/ncbi_dataset $DATABASE_DIR/genome/GCF_009914755.1.zip
 ## Bowtie2
 mkdir -p $DATABASE_DIR/genome/index/bowtie2-chm13
 bowtie2-build -f $DATABASE_DIR/genome/GCF_009914755.1_T2T-CHM13v2.0_genomic.fna $DATABASE_DIR/genome/index/bowtie2-chm13/bowtie2-chm13
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -107,8 +138,41 @@ rm $CWD/database/index/GRCm38/HISAT2/grch38_tran.tar.gz
 
 
 
+## SALMON (DESARROLLAR)
+grep '^>' genome.fa | cut -d ' ' -f 1 | cut -d $'\t' -f 1 > decoys.txt
+salmon index -t athal.fa.gz --threads $task.cpus -d decoys.txt -i athal_index
+
+## RSEM  (DESARROLLAR)
+rsem-prepare-reference --gtf $gtf --num-threads $task.cpus $fasta rsem/genome
 
 
+## KALLISTO (DESARROLLAR) 
+
+
+
+## CELLRANGER  
+curl -O "https://cf.10xgenomics.com/supp/cell-exp/refdata-gex-mm10-2020-A.tar.gz"
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# TODO: create DBs with mouse?
 
 # EVs
 ## KAIJU
