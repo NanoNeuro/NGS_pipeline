@@ -4,7 +4,7 @@ import os
 
 from processing_functions.logging import setup_logger
 from processing_functions.generic_process import create_dirs
-from processing_functions.yaml_config import process_yaml_file
+from processing_functions.yaml_config import parse_yaml_file
 
 # TODO: MIRAR LAS COLUMNAS OPCIONALES Y OBlIGATORIAS DE CADA ELEMENTO
 
@@ -35,13 +35,14 @@ def main():
     # Set up logger based on command-line arguments
     log_file = f"results/{args.project}/{args.project}.log"
     setup_logger(getattr(logging, args.verbose), log_file)
+    logging.info(f'Log file created in {log_file}.')
 
     
 
     # Parse config.yaml
     # TODO: COMPROBAR OUTPUTS
-    list_samplesheets, list_dbs_to_download, list_pipeline_commands = process_yaml_file(yaml_path=f"projects/{args.project}/{args.yaml}")
-
+    list_samplesheets, list_dbs_to_download, list_pipeline_commands = parse_yaml_file(yaml_path=f"projects/{args.project}/{args.yaml}")
+    
 
     # create_samplesheets(list_samplesheets)
 
