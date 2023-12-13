@@ -52,3 +52,4 @@ dependencies:
 #      - cutadapt
       - docker
       - pydeseq2
+      - pyyaml
