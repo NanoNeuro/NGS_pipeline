@@ -4,3 +4,4 @@ results/
 projects/
 .nextflow/
 .nextflow.log*
+src/processing_functions/__pycache__
