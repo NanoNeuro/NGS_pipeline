@@ -2,7 +2,7 @@ import argparse
 import logging
 import os
 
-from src.processing_functions.logging import setup_logger
+from processing_functions.logging import setup_logger
 from processing_functions.generic_process import create_dirs
 from processing_functions.yaml_config import process_yaml_file
 
@@ -14,7 +14,7 @@ def main():
     parser = argparse.ArgumentParser(description='Python script to run combined NGS pipelines.')
     
     # Add argument for log level (required)
-    parser.add_argument('--project', help='Name of the project. It has to be the same as the \
+    parser.add_argument('--project', required=True,  help='Name of the project. It has to be the same as the \
                         folder name located in the projects folder.')
     parser.add_argument('--verbose', choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],
                         default='WARNING',
@@ -29,31 +29,27 @@ def main():
     # Parse command-line arguments
     args = parser.parse_args()
 
-    log_file = f"results/{args.project}/{args.project}.log"
-
-
-    # Set up logger based on command-line arguments
-    setup_logger(getattr(logging, args.verbose), log_file)
-
-
-
     # Create work and results dir for the project
     create_dirs(args=args)
-    
+
+    # Set up logger based on command-line arguments
+    log_file = f"results/{args.project}/{args.project}.log"
+    setup_logger(getattr(logging, args.verbose), log_file)
+
     
 
     # Parse config.yaml
     # TODO: COMPROBAR OUTPUTS
-    list_samplesheets, list_dbs_to_download, list_pipeline_commands = process_yaml_file(yaml_file=f"projects/{args.project}/{args.yaml}")
+    list_samplesheets, list_dbs_to_download, list_pipeline_commands = process_yaml_file(yaml_path=f"projects/{args.project}/{args.yaml}")
 
 
-    create_samplesheets(list_samplesheets)
+    # create_samplesheets(list_samplesheets)
 
 
-    download_DBs(list_dbs_to_download)
+    # download_DBs(list_dbs_to_download)
 
 
-    run_pipeline(list_pipeline_commands)
+    # run_pipeline(list_pipeline_commands)
 
 
 

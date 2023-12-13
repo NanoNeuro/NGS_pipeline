@@ -1,5 +1,5 @@
 import os
 
 def create_dirs(args):
-    os.mkdir(f"work/{args.project}", exists=True)
-    os.mkdir(f"results/{args.project}", exists=True)
+    os.makedirs(f"work/{args.project}", exist_ok=True)
+    os.makedirs(f"results/{args.project}", exist_ok=True)
