@@ -70,6 +70,10 @@ database/
             genome.fasta
             genes.gtf
             genes.bed
+    mirbase/
+        mature.fa
+        hairpin.fa
+        GRCh38.gtf
     indexes/
         GRCh38/
             STAR
@@ -82,6 +86,7 @@ database/
         kraken2/
         krakenuniq/
         centrifuge/
+        taxonomy/
 projects/
     project_A/
         samplesheet.csv   # Files from Exp1 and Exp2 
@@ -96,10 +101,13 @@ projects/
         samplesheet.csv   # Files from Exp1
         config.yml
 results/
-    proyect_A/
+    project_A/
         RNAseq/
         circRNA/
         taxprofiler/
+work/
+    project_A/
+        ...
 src/
     processing_functions/
     notebook_functions/
