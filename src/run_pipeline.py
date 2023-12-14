@@ -41,13 +41,16 @@ def main():
 
     # Parse config.yaml
     # TODO: COMPROBAR OUTPUTS
-    list_samplesheets, list_dbs_to_download, list_pipeline_commands = parse_yaml_file(yaml_path=f"projects/{args.project}/{args.yaml}")
+    yaml_dict, list_samplesheets, list_dbs_to_download = parse_yaml_file(yaml_path=f"projects/{args.project}/{args.yaml}")
     
 
     # create_samplesheets(list_samplesheets)
 
 
     # download_DBs(list_dbs_to_download)
+
+
+    # create command.sh file
 
 
     # run_pipeline(list_pipeline_commands)
