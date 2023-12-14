@@ -1,56 +1,46 @@
 # GRCh38
-## Genome
+## Genome [genome_fasta_GRCh38]
 aws s3 --no-sign-request --region eu-west-1 sync s3://ngi-igenomes/igenomes/Homo_sapiens/NCBI/GRCh38/Sequence/WholeGenomeFasta/ $DATABASE_DIR/genome/GRCh38 
 
-## GTF
+## GTF [genome_GTF_GRCh38]
 aws s3 --no-sign-request --region eu-west-1 sync s3://ngi-igenomes/igenomes/Homo_sapiens/NCBI/GRCh38/Annotation/Genes/ $DATABASE_DIR/genome/GRCh38 --exclude "*" --include "genes.gtf"
 
-## BED
+## BED [genome_BED_GRCh38]
 aws s3 --no-sign-request --region eu-west-1 sync s3://ngi-igenomes/igenomes/Homo_sapiens/NCBI/GRCh38/Annotation/Genes/ $DATABASE_DIR/genome/GRCh38 --exclude "*" --include "genes.bed"
 
-## miRNA GTF
-wget https://mirbase.org/download/CURRENT/genomes/hsa.gff3 -O $CWD/database/genome/GRCh38/mirbase_mirna.gff3
-python src/processing_functions/modify_gff_to_gtf.py --input $CWD/database/genome/GRCh38/mirbase_mirna.gff3 --output $CWD/database/genome/GRCh38/mirbase_mirna.gtf
-
-## miRNA GTF
-wget https://mirbase.org/download/CURRENT/mature.fa -O $CWD/database/genome/GRCh38/mature.fa
-
-## miRNA GTF
-wget https://mirbase.org/download/CURRENT/hairpin.fa -O $CWD/database/genome/GRCh38/hairpin.fa
 
 
-
-## STAR idx
+## STAR idx [STAR_GRCh38]
 aws s3 --no-sign-request --region eu-west-1 sync s3://ngi-igenomes/igenomes/Homo_sapiens/NCBI/GRCh38/Sequence/STARIndex/ $DATABASE_DIR/index/GRCh38/STAR/
 
-## bowtie idx
+## bowtie idx [BOWTIE_GRCh38]
 aws s3 --no-sign-request --region eu-west-1 sync s3://ngi-igenomes/igenomes/Homo_sapiens/NCBI/GRCh38/Sequence/BowtieIndex/ $DATABASE_DIR/index/GRCh38/BOWTIE/
 
-## bowtie2 idx
+## bowtie2 idx [BOWTIE2_GRCh38]
 aws s3 --no-sign-request --region eu-west-1 sync s3://ngi-igenomes/igenomes/Homo_sapiens/NCBI/GRCh38/Sequence/Bowtie2Index/ $DATABASE_DIR/index/GRCh38/BOWTIE2/
 
-## BWA
+## BWA [BWA_GRCh38]
 aws s3 --no-sign-request --region eu-west-1 sync  s3://ngi-igenomes/igenomes/Homo_sapiens/NCBI/GRCh38/Sequence/BWAIndex/version0.6.0/ $DATABASE_DIR/index/GRCh38/BWA/
 
-## HISAT
+## HISAT [HISAT_GRCh38]
 wget https://genome-idx.s3.amazonaws.com/hisat/grch38_tran.tar.gz -O $CWD/database/index/GRCh38/HISAT2/grch38_tran.tar.gz --show-progress
 tar xvf $CWD/database/index/GRCh38/HISAT2/grch38_tran.tar.gz -C $CWD/database/index/GRCh38/HISAT2
 rm $CWD/database/index/GRCh38/HISAT2/grch38_tran.tar.gz
 
 
-## SALMON (DESARROLLAR)
+## SALMON (DESARROLLAR) [SALMON_GRCh38]
 grep '^>' genome.fa | cut -d ' ' -f 1 | cut -d $'\t' -f 1 > decoys.txt
 salmon index -t athal.fa.gz --threads $task.cpus -d decoys.txt -i athal_index
 
-## RSEM  (DESARROLLAR)
+## RSEM  (DESARROLLAR) [RSEM_GRCh38]
 rsem-prepare-reference --gtf $gtf --num-threads $task.cpus $fasta rsem/genome
 
 
-## KALLISTO (DESARROLLAR) 
+## KALLISTO (DESARROLLAR)  [KALLISTO_GRCh38]
 
 
 
-## CELLRANGER 
+## CELLRANGER  [CELLRANGER__GRCh38]
 curl -O "https://cf.10xgenomics.com/supp/cell-exp/refdata-gex-GRCh38-2020-A.tar.gz"
 
 
@@ -58,8 +48,9 @@ curl -O "https://cf.10xgenomics.com/supp/cell-exp/refdata-gex-GRCh38-2020-A.tar.
 
 
 
+
 # CHM13
-## Genome
+## Genome [genome_fasta_CHM13]
 cd $DATABASE_DIR/genome
 curl -OJX GET "https://api.ncbi.nlm.nih.gov/datasets/v2alpha/genome/accession/GCF_009914755.1/download?include_annotation_type=GENOME_FASTA&filename=GCF_009914755.1.zip" -H "Accept: application/zip"
 # Extract the .fna file!
@@ -67,7 +58,7 @@ unzip $DATABASE_DIR/genome/GCF_009914755.1.zip -d $DATABASE_DIR/genome
 mv $DATABASE_DIR/genome/ncbi_dataset/data/GCF_009914755.1/GCF_009914755.1_T2T-CHM13v2.0_genomic.fna $DATABASE_DIR/genome/GCF_009914755.1_T2T-CHM13v2.0_genomic.fna
 rm -r $DATABASE_DIR/genome/ncbi_dataset $DATABASE_DIR/genome/GCF_009914755.1.zip
 
-## Bowtie2
+## Bowtie2 [BOWTIE2_CHM13]
 mkdir -p $DATABASE_DIR/genome/index/bowtie2-chm13
 bowtie2-build -f $DATABASE_DIR/genome/GCF_009914755.1_T2T-CHM13v2.0_genomic.fna $DATABASE_DIR/genome/index/bowtie2-chm13/bowtie2-chm13
 
@@ -96,61 +87,52 @@ bowtie2-build -f $DATABASE_DIR/genome/GCF_009914755.1_T2T-CHM13v2.0_genomic.fna 
 
 
 
+
 # GRCm38
 
-## Genome
+## Genome [genome_fasta_GRCm38]
 aws s3 --no-sign-request --region eu-west-1 sync s3://ngi-igenomes/igenomes/Homo_sapiens/NCBI/GRCm38/Sequence/WholeGenomeFasta/ $DATABASE_DIR/genome/GRCm38 
 
-## GTF
+## GTF  [genome_GTF_GRCm38]
 aws s3 --no-sign-request --region eu-west-1 sync s3://ngi-igenomes/igenomes/Homo_sapiens/NCBI/GRCm38/Annotation/Genes/ $DATABASE_DIR/genome/GRCm38 --exclude "*" --include "genes.gtf"
 
-## BED
+## BED  [genome_BED_GRCm38]
 aws s3 --no-sign-request --region eu-west-1 sync s3://ngi-igenomes/igenomes/Homo_sapiens/NCBI/GRCm38/Annotation/Genes/ $DATABASE_DIR/genome/GRCm38 --exclude "*" --include "genes.bed"
 
-## miRNA GTF
-wget https://mirbase.org/download/CURRENT/genomes/mmu.gff3 -O $CWD/database/genome/GRCm38/mirbase_mirna.gff3
-python src/processing_functions/modify_gff_to_gtf.py --input $CWD/database/genome/GRCm38/mirbase_mirna.gff3 --output $CWD/database/genome/GRCm38/mirbase_mirna.gtf
-
-## miRNA GTF
-wget https://mirbase.org/download/CURRENT/mature.fa -O $CWD/database/genome/GRCm38/mature.fa
-
-## miRNA GTF
-wget https://mirbase.org/download/CURRENT/hairpin.fa -O $CWD/database/genome/GRCm38/hairpin.fa
-
-## STAR idx
+## STAR idx  [STAR_GRCm38]
 # It has to be generated by default  because of an error. Once run with the first run, it can be uploaded to the index/GRCh38/STAR/ folder.
 STAR --runThreadN $NUM_CPUS --runMode genomeGenerate --genomeDir $DATABASE_DIR/index/GRCm38/STAR --genomeFastaFiles $DATABASE_DIR/genome/GRCm38/genome.fa --sjdbGTFfile $DATABASE_DIR/genome/GRCm38/genes.gtf
 
-## bowtie idx
+## bowtie idx   [BOWTIE_GRCm38]
 aws s3 --no-sign-request --region eu-west-1 sync s3://ngi-igenomes/igenomes/Homo_sapiens/NCBI/GRCm38/Sequence/BowtieIndex/ $DATABASE_DIR/index/GRCm38/BOWTIE/
 
 
-## bowtie2 idx
+## bowtie2 idx   [BOWTIE2_GRCm38]
 aws s3 --no-sign-request --region eu-west-1 sync s3://ngi-igenomes/igenomes/Homo_sapiens/NCBI/GRCm38/Sequence/Bowtie2Index/ $DATABASE_DIR/index/GRCm38/BOWTIE2/
 
-## BWA
+## BWA   [BWA_GRCm38]
 aws s3 --no-sign-request --region eu-west-1 sync  s3://ngi-igenomes/igenomes/Homo_sapiens/NCBI/GRCm38/Sequence/BWAIndex/version0.6.0/ $DATABASE_DIR/index/GRCm38/BWA/
 
-## HISAT
+## HISAT   [HISAT_GRCm38]
 wget https://genome-idx.s3.amazonaws.com/hisat/grch38_tran.tar.gz -O $CWD/database/index/GRCm38/HISAT2/grch38_tran.tar.gz --show-progress
 tar xvf $CWD/database/index/GRCm38/HISAT2/grch38_tran.tar.gz -C $CWD/database/index/GRCm38/HISAT2
 rm $CWD/database/index/GRCm38/HISAT2/grch38_tran.tar.gz
 
 
 
-## SALMON (DESARROLLAR)
+## SALMON (DESARROLLAR)   [SALMON_GRCm38]
 grep '^>' genome.fa | cut -d ' ' -f 1 | cut -d $'\t' -f 1 > decoys.txt
 salmon index -t athal.fa.gz --threads $task.cpus -d decoys.txt -i athal_index
 
-## RSEM  (DESARROLLAR)
+## RSEM  (DESARROLLAR)   [RSEM_GRCm38]
 rsem-prepare-reference --gtf $gtf --num-threads $task.cpus $fasta rsem/genome
 
 
-## KALLISTO (DESARROLLAR) 
+## KALLISTO (DESARROLLAR)    [KALLISTO_GRCm38]
 
 
 
-## CELLRANGER  
+## CELLRANGER   [CELLRANGER__GRCm38]
 curl -O "https://cf.10xgenomics.com/supp/cell-exp/refdata-gex-mm10-2020-A.tar.gz"
 
 
@@ -160,6 +142,21 @@ curl -O "https://cf.10xgenomics.com/supp/cell-exp/refdata-gex-mm10-2020-A.tar.gz
 
 
 
+# MIRBASE
+
+## miRNA GTF [mirbase_mature]
+wget https://mirbase.org/download/CURRENT/mature.fa -O $CWD/database/genome/GRCh38/mature.fa
+
+## miRNA GTF [mirbase_hairpin]
+wget https://mirbase.org/download/CURRENT/hairpin.fa -O $CWD/database/genome/GRCh38/hairpin.fa
+
+## miRNA GTF [mirbase_GTF_GRCh38]
+wget https://mirbase.org/download/CURRENT/genomes/hsa.gff3 -O $CWD/work/PROJECT_NAME/mirbase_mirna_GRCh38.gff3
+python src/processing_functions/modify_gff_to_gtf.py --input $CWD/work/PROJECT_NAME/mirbase_mirna_GRCh38.gff3 --output $CWD/database/mirbase/GRCh38.gtf
+
+## miRNA GTF [mirbase_GTF_GRCm38]
+wget https://mirbase.org/download/CURRENT/genomes/mmu.gff3 -O $CWD/work/PROJECT_NAME/mirbase_mirna_GRCm38.gff3
+python src/processing_functions/modify_gff_to_gtf.py --input $CWD/work/PROJECT_NAME/mirbase_mirna_GRCm38.gff3 --output $CWD/database/mirbase/GRCm38.gtf
 
 
 
@@ -175,7 +172,7 @@ curl -O "https://cf.10xgenomics.com/supp/cell-exp/refdata-gex-mm10-2020-A.tar.gz
 # TODO: create DBs with mouse?
 
 # EVs
-## KAIJU
+## KAIJU [KAIJU]
 mkdir -p $DATABASE_DIR/kaiju
 cd $DATABASE_DIR/kaiju
 wget -L https://kaiju-idx.s3.eu-central-1.amazonaws.com/2023/kaiju_db_refseq_2023-05-23.tgz -O $DATABASE_DIR/kaiju/kaiju_refseq.tgz
@@ -201,7 +198,7 @@ kaiju-mkbwt -n $NUM_CPUS -a ACDEFGHIKLMNPQRSTVWY -infilename combined.faa -o kai
 kaiju-mkfmi kaiju_human
 
 
-## CENTRIFUGE
+## CENTRIFUGE [CENTRIFUGE]
 mkdir -p $DATABASE_DIR/centrifuge
 # THIS INDEX WAS TOO BIG BUT WE NEED IT TO MERGE INDEXES
 aws s3 cp s3://genome-idx/centrifuge/nt_2018_3_3.tar.gz $DATABASE_DIR/centrifuge/nt_2018_3_3.tar.gz
@@ -223,7 +220,7 @@ centrifuge-build -p $NUM_CPUS --conversion-table seqid2taxid.map \
 
 
 
-## KRAKEN2
+## KRAKEN2 [KRAKEN2]
 # Kraken 2  FROM https://benlangmead.github.io/aws-indexes/k2  [HUMAN | ARCHAEA | BACTERIA | VIRAL | PLASMID | PROTOZOA | FUNGI]
 mkdir -p $DATABASE_DIR/kraken_2
 wget -L https://genome-idx.s3.amazonaws.com/kraken/k2_pluspf_20230314.tar.gz -O $DATABASE_DIR/kraken_2/kraken_2_db.tar.gz
@@ -232,7 +229,7 @@ tar xvf $DATABASE_DIR/kraken_2/kraken_2_db.tar.gz -C $DATABASE_DIR/kraken_2
 
 
 
-## KRAKENUNIQ
+## KRAKENUNIQ [KRAKENUNIQ]
 # Krakenuniq https://github.com/fbreitwieser/krakenuniq  [HUMAN | ARCHAEA | BACTERIA | VIRAL | UNIVEC_CORE | FUNGI]
 mkdir -p $DATABASE_DIR/krakenuniq
 wget -L https://genome-idx.s3.amazonaws.com/kraken/uniq/MicrobialDB_202008/database.kdb -O $DATABASE_DIR/krakenuniq/database.kdb
@@ -241,7 +238,7 @@ tar xvf $DATABASE_DIR/krakenuniq/kuniq_microbialdb.kdb.20200816.tgz -C $DATABASE
 
 
 
-## TAXPASTA
+## TAXPASTA [TAXPASTA]
 # Download .dmp files
 mkdir -p $DATABASE_DIR/taxpasta
 wget ftp.ncbi.nih.gov/pub/taxonomy/taxdump.tar.gz -O $DATABASE_DIR/taxpasta/taxdump.tar.gz
