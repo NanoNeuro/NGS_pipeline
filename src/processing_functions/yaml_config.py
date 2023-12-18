@@ -1,11 +1,14 @@
 import logging
 import yaml
+import subprocess
 
 
 logger = logging.getLogger()
 
 # These pipeline have to be in the correct order of execution!
 VALID_PIPELINES = ['rnaseq', 'scrnaseq', 'smrnaseq', 'circrna', 'circdna', 'taxprofiler']
+NF_CONFIG_PIPELINES = ['rnaseq', 'scrnaseq', 'smrnaseq', 'circrna', 'circdna']
+DEV_PIPELINES = ['circrna']
 VALID_ORGANISMS = ['human', 'mouse']
 
 # TODO: SORTEAR LOS PIPELINES EN UN ORDEN ESPECÍFICO (https://chat.openai.com/c/5253f50d-7810-4f0e-bc16-c7e4a18a02e5)
@@ -62,6 +65,8 @@ def parse_yaml_file(yaml_path):
     # Then, we are going to check the database to download and append that to the list of databases to download
     yaml_dict, list_dbs_to_download = parse_database_arguments(yaml_dict, list_dbs_to_download)
 
+
+
     return yaml_dict, list_samplesheets, list_dbs_to_download
 
 
@@ -113,8 +118,49 @@ def parse_general_arguments(yaml_dict, list_samplesheets):
     - profile of nf-core dependent processes
     - input samplesheet and and output directory
     - genome / species
-    - 
     """
+    
+    for process_name in yaml_dict.keys():
+        pipeline = yaml_dict[process_name]['general_config']['pipeline']
+
+        if pipeline in NF_CONFIG_PIPELINES:
+            # In case nothing is set in the YAML file
+            if 'nextflow_config' not in yaml_dict[process_name]:
+                yaml_dict[process_name]['nextflow_config'] = {'r': False, 'resume': False, 'profile': False}
+
+            # Check r, resume and pipeline
+            nextflow_config = yaml_dict[process_name]['nextflow_config']
+            pipeline = yaml_dict[process_name]['general_config']['pipeline']
+
+            r = nextflow_config['r'] if 'r' in nextflow_config else False
+            resume = nextflow_config['resume'] if 'resume' in nextflow_config else False
+            profile = nextflow_config['profile'] if 'profile' in nextflow_config else False
+
+            if r == False:
+                # Check the latest version of the pipeline
+                if pipeline in DEV_PIPELINES:
+                    r = 'dev'
+                else:
+                    r = retrieve_r_tag(pipeline)
+
+                nextflow_config = yaml_dict[process_name]['nextflow_config']
+            if profile == False:
+                nextflow_config['profile'] = 'docker'
+
+
+    return yaml_dict
+
+
+
+def retrieve_r_tag(pipeline):
+    # Run the shell command and capture its output
+    command = f'curl https://api.github.com/repos/nf-core/{pipeline}/tags | grep -oP \'"name": "\\K([^\"]*)\' | head -n 1'
+    output = subprocess.check_output(command, shell=True, text=True)
+
+    # Store the output in a variable
+    version = output.strip()
+    return version
+    
 
 
 def parse_database_arguments(yaml_dict, list_dbs_to_download):
