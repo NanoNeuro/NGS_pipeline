@@ -41,8 +41,13 @@ def main():
 
     # Parse config.yaml
     # TODO: COMPROBAR OUTPUTS
-    yaml_dict, list_samplesheets, list_dbs_to_download = parse_yaml_file(yaml_path=f"projects/{args.project}/{args.yaml}")
+    yaml_dict, list_samplesheets, list_dbs_to_download = parse_yaml_file(yaml_path=f"projects/{args.project}/{args.yaml}", 
+                                                                         project=args.project, 
+                                                                         samplesheet=args.samplesheet)
     
+    # make directories associated to the config
+    # TODO ESCRIBIR config.yaml TEMPORAL EN WORK
+
 
     # create_samplesheets(list_samplesheets)
 
