@@ -2,7 +2,7 @@
 # For the necessary libraries.
 
 DIR_PROGRAMS="/home/nanoneuro/Programs"
-
+DIR_DOWNLOADS="/home/nanoneuro/Downloads"
 
 
 # Install apt programs
@@ -43,6 +43,10 @@ DIR_CENTRIFUGE="$DIR_PROGRAMS/centrifuge"
 cd $DIR_DOWNLOADS
 git clone https://github.com/infphilo/centrifuge
 cd centrifuge
+
+sed -i -e 's/“ERROR: please define __cpuid() for this build.\n”/"ERROR: please define __cpuid() for this build.\n"/g' processor_support.h   # Las comillas son raras y dan fallo.
+# Si falla, cambiarlo a mano
+
 make
 sudo make install prefix=$DIR_CENTRIFUGE
 
