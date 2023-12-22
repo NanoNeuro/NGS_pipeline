@@ -12,6 +12,7 @@ dependencies:
   - krakenuniq=1.0.2
   - star==2.7.4a
   - biopython==1.78
+  - psutil
   - seaborn
   - numpy
   - pandas
