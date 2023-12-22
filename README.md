@@ -70,10 +70,13 @@ database/
             genome.fasta
             genes.gtf
             genes.bed
-    mirbase/
-        mature.fa
-        hairpin.fa
-        GRCh38.gtf
+    smRNA/
+        mirbase/
+            mature.fa
+            ...
+        mirgenedb/
+            mature.fa
+            ...
     indexes/
         GRCh38/
             STAR
@@ -81,7 +84,7 @@ database/
         GRCm38/
             bowtie2
             bowtie1
-    profiling/
+    taxprofiler/
         kaiju/
         kraken2/
         krakenuniq/
