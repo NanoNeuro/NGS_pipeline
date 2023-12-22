@@ -4,7 +4,7 @@ import psutil
 import subprocess
 import yaml
 
-from database_download import dict_dbs as DICT_DBS
+from .database_download import dict_dbs as DICT_DBS
 
 
 logger = logging.getLogger()
@@ -63,6 +63,7 @@ def parse_yaml_file(yaml_path, project, samplesheet):
 
     list_samplesheets, list_dbs_to_download = [], []
 
+    yaml_dict = read_yaml(yaml_path)
     with open(yaml_path, 'r') as file:
         try:
             yaml_dict = yaml.safe_load(file)
@@ -101,12 +102,11 @@ def parse_yaml_file(yaml_path, project, samplesheet):
 
 
     # Then, we are going to check the database to download and append that to the list of databases to download
-    yaml_dict, list_dbs_to_download = parse_database_arguments(yaml_dict, list_dbs_to_download)
+    parse_database_arguments(yaml_dict, list_dbs_to_download)
 
 
 
     return yaml_dict, list_samplesheets, list_dbs_to_download
-
 
 
 ################################################################################################
@@ -143,7 +143,7 @@ def parse_general_config(yaml_dict, project):
 
         if yaml_dict[process_name]['general_config']['outdir'] == False:
             # TODO: MKDIR
-            yaml_dict[process_name]['general_config']['outdir'] = f"results/{project}/"
+            yaml_dict[process_name]['general_config']['outdir'] = f"results/{project}/{process_name}"
         else:
             if 'nfcore_config' in yaml_dict:
                 if 'outdir' in yaml_dict['nfcore_config']:
@@ -156,14 +156,14 @@ def parse_general_config(yaml_dict, project):
             yaml_dict[process_name]['general_config']['max_cpus'] = int(MAX_CPU_PER * get_available_cpus())
         else:
             if yaml_dict[process_name]['general_config']['max_cpus'] > get_available_cpus():
-                logger.warning(f"The number of CPUs set ({yaml_dict[process_name]['general_config']['max_cpus']}) 
+                logger.warning(f"The number of CPUs set ({yaml_dict[process_name]['general_config']['max_cpus']}) \
                                is larger than the maximum allowed number ({get_available_cpus()}).")
             
         if yaml_dict[process_name]['general_config']['max_memory'] == False:
             yaml_dict[process_name]['general_config']['max_memory'] = int(MAX_MEMORY_PER * get_RAM_GB())
         else:
             if yaml_dict[process_name]['general_config']['max_cpus'] > get_available_cpus():
-                logger.warning(f"The number of CPUs set ({yaml_dict[process_name]['general_config']['max_cpus']}) 
+                logger.warning(f"The number of CPUs set ({yaml_dict[process_name]['general_config']['max_cpus']}) \
                                is larger than the maximum allowed number ({get_available_cpus()}).")
 
         if yaml_dict[process_name]['general_config']['max_time'] == False:
@@ -224,12 +224,12 @@ def parse_nfcore_config(yaml_dict):
                     yaml_dict[process_name]['nfcore_config'][element] = False
             
             if yaml_dict[process_name]['nfcore_config']['outdir'] == False:
-                yaml_dict[process_name]['nfcore_config']['outdir'] = f"{yaml_dict[process_name]['nfcore_config']['outdir']}/{pipeline}/"
+                yaml_dict[process_name]['nfcore_config']['outdir'] = f"results/{pipeline}/{process_name}"
 
 
             
             if yaml_dict[process_name]['nfcore_config']['genome'] == False:
-                organism = yaml_dict[process_name]['nfcore_config']['organism']
+                organism = yaml_dict[process_name]['general_config']['organism']
                 yaml_dict[process_name]['nfcore_config']['genome'] = DICT_GENOMES[organism]
 
 
@@ -339,7 +339,7 @@ def parse_database_arguments(yaml_dict, list_dbs_to_download):
 
     for process_name in yaml_dict.keys():
         pipeline = yaml_dict[process_name]['general_config']['pipeline']
-        organism = pipeline = yaml_dict[process_name]['general_config']['organism']
+        organism = yaml_dict[process_name]['general_config']['organism']
 
         # TODO: PENSAR COMO HACER EL ARRANGEMENT DE LAS COSAS (COMO DETERMINAR QUÉ BAJAR)
         # SEGUN ALIGNER
@@ -360,12 +360,12 @@ def parse_database_arguments(yaml_dict, list_dbs_to_download):
                     if (not is_aligner) & (not is_pseudoaligner):
                         yaml_dict[process_name]['nfcore_config']['aligner'] = DEFAULT_RNASEQ_ALIGNER
                         aligner = yaml_dict[process_name]['nfcore_config']['aligner']
-                        pseudoaligner = None
+                        pseudoaligner = False
                     elif (is_aligner) & (not is_pseudoaligner):
                         aligner = yaml_dict[process_name]['nfcore_config']['aligner']
-                        pseudoaligner = None
+                        pseudoaligner = False
                     elif (not is_aligner) & (is_pseudoaligner):
-                        aligner = None
+                        aligner = False
                         pseudoaligner = yaml_dict[process_name]['nfcore_config']['pseudo_aligner']
                     else :
                         aligner = yaml_dict[process_name]['nfcore_config']['aligner']
@@ -381,6 +381,8 @@ def parse_database_arguments(yaml_dict, list_dbs_to_download):
                             fillable_args += ['star_index', 'rsem_index']
                         case 'hisat2':
                             fillable_args += ['hisat2_index']
+                        case False:
+                            pass
                         case _:
                             err = "rnaseq pipeline yaml currently supports the following aligners: \
                                    star_salmon, star_rsem, hisat2."
@@ -391,6 +393,8 @@ def parse_database_arguments(yaml_dict, list_dbs_to_download):
                             fillable_args += ['kallisto_index']
                         case 'salmon': 
                             fillable_args += ['salmon_index']
+                        case False:
+                            pass
                         case _:
                             err = "rnaseq pipeline yaml currently supports the following pseudoaligners: \
                                    kallisto, salmon."
@@ -480,13 +484,16 @@ def parse_database_arguments(yaml_dict, list_dbs_to_download):
                         logger.error(err); raise AssertionError(err)
                 
                 else:  # There is no path
-                    if arg in ['star', 'bowtie', 'bowtie2', 'bwa', 'hisat2']:
+                    if arg in ['star', 'bowtie', 'bowtie2', 'bwa', 'hisat2', 'segemehl']:
                         arg_db = arg + '_index_' + DICT_GENOMES[organism]
                     elif arg in ['fasta', 'transcript_fasta', 'gtf', 'bed', 'star_index', 'bowtie_index', 'bowtie2_index', \
-                                 'bwa_index', 'hisat_index', 'salmon_index', 'rsem_index', 'kallisto_index', 'cellranger_index', 'universc_index']:
+                                 'bwa_index', 'hisat_index', 'salmon_index', 'rsem_index', 'kallisto_index', 'kallisto_gene_map', \
+                                    'cellranger_index', 'universc_index']:
                         arg_db = arg + '_' + DICT_GENOMES[organism]
+                    elif arg == 'gene_bed':
+                        arg_db = 'bed_' + DICT_GENOMES[organism]
                     elif arg in ['mirna_gtf', 'mature', 'hairpin']:
-                        arg_db = 'mirbase_' + arg.replace('mirna_')
+                        arg_db = 'mirbase_' + arg.replace('mirna_', '')
                         if arg_db == 'mirbase_gtf':
                             arg_db = arg_db + '_' + DICT_GENOMES[organism]
                     elif arg == 'mirgenedb_gff':
@@ -540,13 +547,31 @@ def parse_database_arguments(yaml_dict, list_dbs_to_download):
 ################################################################################################
 # TERCIARY FUNCTIONS
 ################################################################################################
+def read_yaml(yaml_path):
+    with open(yaml_path, 'r') as file:
+        try:
+            yaml_dict = yaml.safe_load(file)
+        except Exception as e: 
+            logger.error('YAML configuration is not valid.', exc_info=True)
+            raise
+
+
+
+def write_yaml_file(yaml_dict, yaml_path):
+    with open(yaml_path, 'w') as outfile:
+        yaml.dump(yaml_dict, outfile, default_flow_style=False, sort_keys=False)    
+
+
+
 def custom_sort_valid_pipelines(item):
     return VALID_PIPELINES.index(item[1])
 
 
+
 def custom_sort_dict_dbs(item):
     list_dbs = list(DICT_DBS.keys())
-    return list_dbs.index(item])
+    return list_dbs.index(item)
+
 
 
 def sort_pipelines(yaml_dict):
@@ -562,15 +587,18 @@ def sort_pipelines(yaml_dict):
     return ordered_yaml_dict
 
 
+
 def retrieve_r_tag(pipeline):
     # Run the shell command and capture its output
-    command = f'curl https://api.github.com/repos/nf-core/{pipeline}/tags | grep -oP \'"name": "\\K([^\"]*)\' | head -n 1'
+    command = f'curl -s --url https://api.github.com/repos/nf-core/{pipeline}/tags --header "Authorization: Bearer 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" \
+                | grep -oP \'"name": "\\K([^\"]*)\' | head -n 1'
     output = subprocess.check_output(command, shell=True, text=True)
 
     # Store the output in a variable
     version = output.strip()
     return version
     
+
 
 def get_RAM_GB():
     virtual_memory = psutil.virtual_memory()
@@ -579,10 +607,12 @@ def get_RAM_GB():
     return available_ram_gb
 
 
+
 def get_available_cpus():
     # Get the number of available CPUs
-    available_cpus = psutil.cpu_count(logical=False)  # logical=False returns the number of physical CPUs
+    available_cpus = psutil.cpu_count(logical=True)
     return available_cpus
+
 
 
 def check_entry(dict_eval, dict_key):

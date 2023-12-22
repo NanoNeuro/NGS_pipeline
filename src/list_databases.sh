@@ -2,6 +2,7 @@
 ## Genome [genome_fasta_GRCh38]
 aws s3 --no-sign-request --region eu-west-1 sync s3://ngi-igenomes/igenomes/Homo_sapiens/NCBI/GRCh38/Sequence/WholeGenomeFasta/ $DATABASE_DIR/genome/GRCh38 
 
+
 ## GTF [genome_GTF_GRCh38]
 aws s3 --no-sign-request --region eu-west-1 sync s3://ngi-igenomes/igenomes/Homo_sapiens/NCBI/GRCh38/Annotation/Genes/ $DATABASE_DIR/genome/GRCh38 --exclude "*" --include "genes.gtf"
 
@@ -118,7 +119,7 @@ wget https://genome-idx.s3.amazonaws.com/hisat/grch38_tran.tar.gz -O $CWD/databa
 tar xvf $CWD/database/index/GRCm38/HISAT2/grch38_tran.tar.gz -C $CWD/database/index/GRCm38/HISAT2
 rm $CWD/database/index/GRCm38/HISAT2/grch38_tran.tar.gz
 
-
+https://daehwankimlab.github.io/hisat2/download/#h-sapiens
 
 ## SALMON (DESARROLLAR)   [SALMON_GRCm38]
 grep '^>' genome.fa | cut -d ' ' -f 1 | cut -d $'\t' -f 1 > decoys.txt
