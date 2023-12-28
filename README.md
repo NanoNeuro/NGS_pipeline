@@ -39,7 +39,7 @@ these programs will be installed in the variable `DIR_PROGRAMS` of the `install_
 * RNAseq -> sample, fastq_1, fastq_2, strandedness
 * circRNA -> sample, fastq_1, fastq_2
 * circDNA -> sample, fastq_1, fastq_2
-* taxprofiling -> sample, fastq_1, fastq_2  [derived from nf-core/RNAseq]
+* taxprofiling -> sample, fastq_1, fastq_2, strandedness  [derived from nf-core/RNAseq]
 * smrnaseq -> sample, fastq_1
 * scrnaseq (10X) -> sample, fastq_1, fastq_2, expected_cells
 * diffabundance -> sample, fastq_1, fastq_2, condition, replicate, batch
@@ -114,10 +114,10 @@ work/
 src/
     processing_functions/
     notebook_functions/
-    install/
+    config/
         install.sh
-        database_install.sh
-        conda_env.yml
+        conda_env.yaml
+        taxpasta_exclusions.yaml
     run_pipeline.py
 README.md
 .gitconfig

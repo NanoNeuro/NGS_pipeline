@@ -5,6 +5,9 @@ DIR_PROGRAMS="/home/nanoneuro/Programs"
 DIR_DOWNLOADS="/home/nanoneuro/Downloads"
 
 
+# TODO: INSTALL DOCKERdocker run --rm -it amazon/aws-cli help
+
+
 # Install apt programs
 apt install awscli
 

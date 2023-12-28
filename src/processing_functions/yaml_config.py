@@ -4,42 +4,13 @@ import psutil
 import subprocess
 import yaml
 
-from .database_download import dict_dbs as DICT_DBS
-
+from .database_download import DICT_DBS
+from .global_vars_and_funcs import VALID_ORGANISMS, VALID_PIPELINES, VALID_PROFILERS, DEV_PIPELINES, DICT_GENOMES, NF_CONFIG_PIPELINES
+from .global_vars_and_funcs import DEFAULT_CIRCRNA_TOOL, DEFAULT_CIRCDNA_TOOL, DEFAULT_CIRCRNA_MODULE, DEFAULT_MIRGENEDB, DEFAULT_RNASEQ_ALIGNER, DEFAULT_SCRNASEQ_ALIGNER
+from .global_vars_and_funcs import MAX_CPU, MAX_RAM, get_available_cpus
 
 logger = logging.getLogger()
 
-
-
-################################################################################################
-# GLOBAL VARIABLES
-################################################################################################
-# These pipeline have to be in the correct order of execution!
-VALID_PIPELINES = ['rnaseq', 'scrnaseq', 'smrnaseq', 'circrna', 'circdna', 'taxprofiler']
-
-NF_CONFIG_PIPELINES = ['rnaseq', 'scrnaseq', 'smrnaseq', 'circrna', 'circdna']
-DEV_PIPELINES = ['circrna']
-
-VALID_ORGANISMS = ['human', 'mouse']
-DICT_GENOMES = {'human': 'GRCh38', 'mouse': 'GRCm38'}
-
-DEFAULT_RNASEQ_ALIGNER = 'star_salmon'
-DEFAULT_SCRNASEQ_ALIGNER = 'alevin'
-DEFAULT_MIRGENEDB = False
-DEFAULT_CIRCRNA_MODULE = 'circrna_discovery'
-DEFAULT_CIRCRNA_TOOL = 'circexplorer'
-DEFAULT_CIRCDNA_TOOL = 'circle_map_realign'
-
-VALID_PROFILERS = ['kaiju', 'krakenuniq', 'kraken2', 'centrifuge']
-TAXPASTA_SUMMARISE_AT = 'genus'
-TAXPASTA_ADD_NAME = True
-TAXPASTA_ADD_LINEAGE = True
-
-
-
-MAX_MEMORY_PER = 0.8
-MAX_CPU_PER = 0.8
-MAX_TIME = 500
 
 
 ################################################################################################
@@ -153,14 +124,14 @@ def parse_general_config(yaml_dict, project):
 
         # TODO: CHECK THAT THE LIMITS ARE CORRECT; AND ELSE ADD A WARNING
         if yaml_dict[process_name]['general_config']['max_cpus'] == False:
-            yaml_dict[process_name]['general_config']['max_cpus'] = int(MAX_CPU_PER * get_available_cpus())
+            yaml_dict[process_name]['general_config']['max_cpus'] = MAX_CPU
         else:
             if yaml_dict[process_name]['general_config']['max_cpus'] > get_available_cpus():
                 logger.warning(f"The number of CPUs set ({yaml_dict[process_name]['general_config']['max_cpus']}) \
                                is larger than the maximum allowed number ({get_available_cpus()}).")
             
         if yaml_dict[process_name]['general_config']['max_memory'] == False:
-            yaml_dict[process_name]['general_config']['max_memory'] = int(MAX_MEMORY_PER * get_RAM_GB())
+            yaml_dict[process_name]['general_config']['max_memory'] = MAX_RAM
         else:
             if yaml_dict[process_name]['general_config']['max_cpus'] > get_available_cpus():
                 logger.warning(f"The number of CPUs set ({yaml_dict[process_name]['general_config']['max_cpus']}) \
@@ -239,7 +210,7 @@ def parse_taxprofiler_config(yaml_dict):
     Processes arguments specific of taxprofiler-derived processes. In this function we check:
     1) The profilers chosen. If any profiler is not within the list of available ones, we will raise an error.
     2) The host mapping configuration. We can accept 4 scenarios:
-        - No mapping is performed. This option is not recommended, so it will raise a warning. 
+        - No mapping is performed. This option is not recommended, so it will raise an error. 
         - 1st mapping (GRCh38) is performed, and not 2nd one.
         - 2nd mapping is performed (CHM13) and not 1st one. This option is not recommended, so it will raise a warning. 
         - Both 1st and 2nd mapping are performed.
@@ -269,18 +240,16 @@ def parse_taxprofiler_config(yaml_dict):
                     logger.error(err); raise AssertionError(err)
 
             # 2) Host mapping configuration
-            is_map1 = check_entry(yaml_dict[process_name]['host_mapping_config'], '1st_map')
-            if not is_map1:
+            if '1st_map' not in yaml_dict[process_name]['host_mapping_config']:
                 yaml_dict[process_name]['host_mapping_config']['1st_map'] = True
-
-            is_map2 = check_entry(yaml_dict[process_name]['host_mapping_config'], '2nd_map')
-            if not is_map2:
+            if '2nd_map' not in yaml_dict[process_name]['host_mapping_config']:
                 yaml_dict[process_name]['host_mapping_config']['2nd_map'] = True
             
             map1, map2 = yaml_dict[process_name]['host_mapping_config']['1st_map'], yaml_dict[process_name]['host_mapping_config']['2nd_map']
 
             if ((not map1) & (not map2)) | ((not map1) & (map2)):
-                logger.warning('We recommend setting 1st_map to true to remove host reads!')
+                err = 'We recommend setting 1st_map to true to remove host reads!'
+                logger.warning(err)
 
             # 3) Configuration of profilers
             ## Check that the config dictionary exists
@@ -312,7 +281,7 @@ def parse_input_samplesheet(yaml_dict, project, samplesheet, list_samplesheets):
             yaml_config_input_file = yaml_dict[process_name]['nfcore_config']['input']
             if yaml_config_input_file == False:
                     yaml_dict[process_name]['nfcore_config']['input'] = path_to_process_csv
-                    list_samplesheets.append((project, pipeline, path_to_process_csv))
+                    list_samplesheets.append((process_name, pipeline, path_to_process_csv))
             else:
                 if yaml_config_input_file != path_to_process_csv:
                     logger.warning(f"Input file in yaml config ({yaml_config_input_file}) differs from the expected path \
@@ -320,7 +289,7 @@ def parse_input_samplesheet(yaml_dict, project, samplesheet, list_samplesheets):
                                     (/projects/{project}/{samplesheet}), and set this \
                                     configuration as false in the config yaml file.", exc_info=True)
         else:
-            list_samplesheets.append((project, pipeline, path_to_process_csv))
+            list_samplesheets.append((process_name, pipeline, path_to_process_csv))
 
 
 def parse_database_arguments(yaml_dict, list_dbs_to_download):
@@ -554,6 +523,8 @@ def read_yaml(yaml_path):
         except Exception as e: 
             logger.error('YAML configuration is not valid.', exc_info=True)
             raise
+    
+    return yaml_dict
 
 
 
@@ -598,21 +569,6 @@ def retrieve_r_tag(pipeline):
     version = output.strip()
     return version
     
-
-
-def get_RAM_GB():
-    virtual_memory = psutil.virtual_memory()
-    # Calculate and return the available RAM in gigabytes
-    available_ram_gb = virtual_memory.available / (1024 ** 3)
-    return available_ram_gb
-
-
-
-def get_available_cpus():
-    # Get the number of available CPUs
-    available_cpus = psutil.cpu_count(logical=True)
-    return available_cpus
-
 
 
 def check_entry(dict_eval, dict_key):
