@@ -14,8 +14,6 @@ apt install awscli
 
 
 
-
-
 # Create conda environment
 conda deactivate
 conda remove --name NGS_pipeline --all -y
