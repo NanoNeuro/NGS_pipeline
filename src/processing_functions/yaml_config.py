@@ -340,7 +340,7 @@ def parse_database_arguments(yaml_dict, list_dbs_to_download):
                         aligner = yaml_dict[process_name]['nfcore_config']['aligner']
                         pseudoaligner = yaml_dict[process_name]['nfcore_config']['pseudo_aligner']
 
-                    fillable_args += ['fasta', 'gtf', 'gene_bed']
+                    fillable_args += ['genome_fasta', 'gtf', 'gene_bed']
 
                     match aligner:
                         # TODO: checkear si en configs sin salmon hace falta el indice de salmon para el paso de infer_strandness
@@ -375,14 +375,14 @@ def parse_database_arguments(yaml_dict, list_dbs_to_download):
                     if (not is_aligner):
                         yaml_dict[process_name]['nfcore_config']['aligner'] = DEFAULT_SCRNASEQ_ALIGNER
 
-                    fillable_args += ['fasta', 'transcript_fasta', 'gtf',]
+                    fillable_args += ['genome_fasta', 'transcript_fasta', 'gtf',]
                     match yaml_dict[process_name]['nfcore_config']['aligner']:
                         # TODO: checkear si en configs sin salmon hace falta el indice de salmon para el paso de infer_strandness
                         case 'alevin':
                             fillable_args += ['salmon_index', 'txp2gene']
                         case 'kallisto':
-                            # TODO: check how to create kallisto gene map
-                            fillable_args += ['kallisto_index', 'kallisto_gene_map']
+                            # It is easier to create the kallisto_gene_map providing the gtf file within the pipeline
+                            fillable_args += ['kallisto_index'] #, 'kallisto_gene_map']
                         case 'star':
                             fillable_args += ['star_index']
                         case 'cellranger':
@@ -396,28 +396,28 @@ def parse_database_arguments(yaml_dict, list_dbs_to_download):
 
 
                 case 'smrnaseq':
-                    fillable_args += ['fasta', 'bowtie_index']
+                    fillable_args += ['genome_fasta', 'bowtie_index']
                     is_mirgenedb = check_entry(yaml_dict[process_name]['nfcore_config'], 'mirgenedb')
                     if (not is_mirgenedb):
                         yaml_dict[process_name]['nfcore_config']['mirgenedb'] = DEFAULT_MIRGENEDB
 
                     if yaml_dict[process_name]['nfcore_config']['mirgenedb'] == True:
-                        fillable_args += ['mirgenedb_gff', 'mirgenedb_mature', 'mirgene_hairpin']
+                        fillable_args += ['mirgenedb_gff', 'mirgenedb_mature', 'mirgenedb_hairpin']
                     else:
-                        fillable_args += ['mirna_gtf', 'mature', 'hairpin']
+                        fillable_args += ['mirbase_gff', 'mirbase_mature', 'mirbase_hairpin']
 
 
                 case 'circrna':
                     # TODO: CHECKEAR QUE INDICES SE EMPLEAN PARA CADA TOOL
                     # TODO: CHECKEAR QUE LOS INDICES EN FALSE NO SE USAN: p.ej si no uso segemehl, que no me cree el index el programa
-                    fillable_args += ['fasta', 'gtf', 'star', 'bowtie', 'bowtie2', 'bwa', 'hisat2',]
+                    fillable_args += ['genome_fasta', 'gtf', 'star', 'bowtie', 'bowtie2', 'bwa', 'hisat2',]
 
                     circrna_module = check_entry(yaml_dict[process_name]['nfcore_config'], 'module')
                     if (not circrna_module):
                         yaml_dict[process_name]['nfcore_config']['module'] = DEFAULT_CIRCRNA_MODULE
 
                     if 'mirna_prediction' in yaml_dict[process_name]['nfcore_config']['module']:
-                        fillable_args += ['mature']
+                        fillable_args += ['mirbase_mature']
 
                     circrna_tool = check_entry(yaml_dict[process_name]['nfcore_config'], 'tool')
                     if (not circrna_tool):
@@ -428,7 +428,7 @@ def parse_database_arguments(yaml_dict, list_dbs_to_download):
 
 
                 case 'circdna':
-                    fillable_args += ['fasta', 'bwa']
+                    fillable_args += ['genome_fasta', 'bwa']
 
                     cirdrna_tool = check_entry(yaml_dict[process_name]['nfcore_config'], 'circle_identifier')
                     if (not cirdrna_tool):
@@ -453,18 +453,16 @@ def parse_database_arguments(yaml_dict, list_dbs_to_download):
                         logger.error(err); raise AssertionError(err)
                 
                 else:  # There is no path
-                    if arg in ['star', 'bowtie', 'bowtie2', 'bwa', 'hisat2', 'segemehl']:
+                    if arg in ['star', 'bowtie', 'bowtie2', 'bwa', 'hisat2', 'segemehl', 'aa_data_repo']:
                         arg_db = arg + '_index_' + DICT_GENOMES[organism]
-                    elif arg in ['fasta', 'transcript_fasta', 'gtf', 'bed', 'star_index', 'bowtie_index', 'bowtie2_index', \
+                    elif arg in ['genome_fasta', 'transcript_fasta', 'gtf', 'bed', 'star_index', 'bowtie_index', 'bowtie2_index', \
                                  'bwa_index', 'hisat_index', 'salmon_index', 'rsem_index', 'kallisto_index', 'kallisto_gene_map', \
-                                    'cellranger_index', 'universc_index']:
+                                    'cellranger_index', 'universc_index', 'mirgenedb_gff', 'mirbase_gff']:
                         arg_db = arg + '_' + DICT_GENOMES[organism]
                     elif arg == 'gene_bed':
                         arg_db = 'bed_' + DICT_GENOMES[organism]
-                    elif arg in ['mirna_gtf', 'mature', 'hairpin']:
-                        arg_db = 'mirbase_' + arg.replace('mirna_', '')
-                        if arg_db == 'mirbase_gtf':
-                            arg_db = arg_db + '_' + DICT_GENOMES[organism]
+                    elif arg in ['mirbase_mature', 'mirbase_hairpin', 'mirgenedb_mature', 'mirgenedb_hairpin']:
+                        arg_db = arg
                     elif arg == 'mirgenedb_gff':
                         arg_db = arg + '_' + DICT_GENOMES[organism]
                     elif arg == 'txp2gene':
@@ -492,11 +490,11 @@ def parse_database_arguments(yaml_dict, list_dbs_to_download):
             fillable_args = []
             # databases related to 1st and 2nd maps: 
             if yaml_dict[process_name]['host_mapping_config']['1st_map']:
-                for db in ['fasta', 'gtf', 'star_index', 'salmon_index', 'rsem_index']:
+                for db in ['genome_fasta', 'gtf', 'star_index', 'salmon_index', 'rsem_index']:
                     fillable_args.append(db + '_' + DICT_GENOMES[organism])
 
             if yaml_dict[process_name]['host_mapping_config']['2nd_map']:
-                fillable_args += ['fasta_CHM13', 'bowtie2_index_CHM13']
+                fillable_args += ['genome_fasta_CHM13', 'bowtie2_index_CHM13']
 
             list_profilers_str = yaml_dict[process_name]['profiler_config']['profilers']
             list_profilers = list_profilers_str.split(',')

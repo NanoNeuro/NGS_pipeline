@@ -2,7 +2,7 @@ import logging
 import os
 
 from .versions import VERSION
-from .global_vars_and_funcs import MAX_CPU, MAX_RAM, MB, GB, DICT_CONTAINERS
+from .global_vars_and_funcs import MAX_CPU, MAX_RAM, MB, GB, DICT_CONTAINERS, ENSEMBL_VERSION_HUMAN, ENSEMBL_VERSION_MOUSE, HISAT2_LIMIT_MEM
 
 
 
@@ -74,14 +74,7 @@ echo "
     write_database_file(file_text, project)
 
 
-# TODO: EN CADA UNA DE LAS BASES DE DATOS, COMPROBAR QUE ESTÁN LOS ARCHIVOS NECESARIOS Y QUE NO ESTÁN VACIOS
-# TODO: probar a hacer la descarga desde https://quay.io/repository/biocontainers/rsem?tab=tags y correr el proceso que sea desde docker
 
-# https://www.ncbi.nlm.nih.gov/datasets/genome/GCF_000001405.40/ # HUMAN
-# https://www.ncbi.nlm.nih.gov/datasets/genome/GCF_000001635.27/ # MOUSE
- # TODO MIRAR CURL
-    # https://api.ncbi.nlm.nih.gov/datasets/v2alpha/genome/accession/GCF_000001405.40/download?include_annotation_type=FASTA,GFF,RNA_FASTA,CDS_FASTA,PROT_FASTA,SEQUENCE_REPORT
-    # return ""
 
 
 
@@ -95,23 +88,22 @@ def download_fasta_GRCh38(path_db, file_text):
         return ""  # I write the code as such to avoid encapsulation.
 
         
-    path, filename = os.path.split(path_db, file_text)
+    path, filename = os.path.split(path_db)
 
     title = """echo "### Downloading GRCh38 genome fasta file."\n\n"""
 
-    cmd = f""" docker run -it --rm -v $(pwd)/{path}/:/DB_DOWNLOAD \\\n\
-        {DICT_CONTAINERS['ncbi-datasets']} \\\n\
-        sh -c "\\\n\
-            datasets download genome accession GCF_000001405.40 --include genome;\\\n\
-            unzip ncbi_dataset.zip;\\\n\
-            cp ncbi_dataset/data/GCF_000001405.40/GCF_000001405.40_GRCh38.p14_genomic.fna /DB_DOWNLOAD/{filename}\\\n\
-    "\n\n\n"""
+    cmd = f""" docker run -it --rm -v $(pwd)/database/:/database \\\n\
+        {DICT_CONTAINERS['aria2c']} \\\n\
+        --file-allocation=none -x {MAX_CPU} -d /{path} https://ftp.ensembl.org/pub/release-{ENSEMBL_VERSION_HUMAN}/fasta/homo_sapiens/dna/Homo_sapiens.GRCh38.dna_sm.primary_assembly.fa.gz\n\
+            gzip -d {path}/Homo_sapiens.GRCh38.dna_sm.primary_assembly.fa.gz\n\
+            mv {path}/Homo_sapiens.GRCh38.dna_sm.primary_assembly.fa {path}/{filename}
+    \n\n\n"""
 
 
-    cmd_index_fai = f""" docker run -it --rm -v $(pwd)/{path}/:/DB_DOWNLOAD \\\n\
+    cmd_index_fai = f""" docker run -it --rm -v $(pwd)/{path}/:/database \\\n\
         {DICT_CONTAINERS['samtools']} \\\n\
         sh -c "\\\n\
-            samtools faidx /DB_DOWNLOAD/{filename}\\\n\
+            samtools faidx /database/{filename}\\\n\
     "\n\n\n"""  
     
     
@@ -120,7 +112,7 @@ def download_fasta_GRCh38(path_db, file_text):
    
 
 def download_transcript_fasta_GRCh38(path_db, file_text):
-    if not db_check(path_db, subfiles_check=[], min_weight=380 * MB):
+    if not db_check(path_db, subfiles_check=[], min_weight=440 * MB):
         logger.info(f'Database {path_db} already exists. It will not be downloaded.')
         return ""  # I write the code as such to avoid encapsulation.
 
@@ -130,14 +122,16 @@ def download_transcript_fasta_GRCh38(path_db, file_text):
     
     title = """echo "### Downloading GRCh38 transcript fasta file."\n\n"""
 
-    cmd = f""" docker run -it --rm -v $(pwd)/{path}/:/DB_DOWNLOAD \\\n\
-        {DICT_CONTAINERS['ncbi-datasets']} \\\n\
-        sh -c "\\\n\
-            datasets download genome accession GCF_000001405.40 --include cds;\\\n\
-            unzip ncbi_dataset.zip;\\\n\
-            cp ncbi_dataset/data/GCF_000001405.40/cds_from_genomic.fna /DB_DOWNLOAD/{filename}\\\n\
-    "\n\n\n"""
+    cmd = f""" docker run -it --rm -v $(pwd)/database/:/database \\\n\
+        {DICT_CONTAINERS['aria2c']} \\\n\
+        --file-allocation=none -x {MAX_CPU} -d /{path} https://ftp.ensembl.org/pub/release-{ENSEMBL_VERSION_HUMAN}/fasta/homo_sapiens/cdna/Homo_sapiens.GRCh38.cdna.all.fa.gz\n\
+            gzip -d {path}/Homo_sapiens.GRCh38.cdna.all.fa.gz\n\
+            mv {path}/Homo_sapiens.GRCh38.cdna.all.fa {path}/{filename}
+    \n\n\n"""
     
+
+
+
     return title + cmd
 
 
@@ -148,36 +142,38 @@ def download_gtf_GRCh38(path_db, file_text):
         return ""  # I write the code as such to avoid encapsulation.
 
         
-    path, filename = os.path.split(path_db, file_text)
+    path, filename = os.path.split(path_db)
     os.makedirs(path, exist_ok=True)
 
     title = """echo "### Downloading GRCh38 gene gtf file."\n\n"""
 
-    cmd = f""" docker run -it --rm -v $(pwd)/{path}/:/DB_DOWNLOAD \\\n\
-        {DICT_CONTAINERS['ncbi-datasets']} \\\n\
-        sh -c "\\\n\
-            datasets download genome accession GCF_000001405.40 --include gff3;\\\n\
-            unzip ncbi_dataset.zip;\\\n\
-            cp ncbi_dataset/data/GCF_000001405.40/genomic.gff /DB_DOWNLOAD/{filename.replace('gtf', 'gff')}\\\n\
-    "\n\n\n"""
-
-    cmd_gff_to_gff = f""" docker run -it --rm -v $(pwd)/{path}/:/DB_DOWNLOAD \\\n\
-        {DICT_CONTAINERS['gffread']} \\\n\
-        sh -c "\\\n\
-            gffread /DB_DOWNLOAD/{filename.replace('gtf', 'gff')} -T -o /DB_DOWNLOAD/{filename}\\\n\
-    "\n\n\n"""
+    cmd_gtf = f""" docker run -it --rm -v $(pwd)/database/:/database \\\n\
+        {DICT_CONTAINERS['aria2c']} \\\n\
+        --file-allocation=none -x {MAX_CPU} -d /{path} https://ftp.ensembl.org/pub/release-{ENSEMBL_VERSION_HUMAN}/gtf/homo_sapiens/Homo_sapiens.GRCh38.{ENSEMBL_VERSION_HUMAN}.gtf.gz\n\
+            gzip -d {path}/Homo_sapiens.GRCh38.{ENSEMBL_VERSION_HUMAN}.gtf.gz\n\
+            mv {path}/Homo_sapiens.GRCh38.{ENSEMBL_VERSION_HUMAN}.gtf {path}/{filename}
+    \n\n\n"""
 
 
-    return title + cmd + cmd_gff_to_gff
+    cmd_gff = f""" docker run -it --rm -v $(pwd)/database/:/database \\\n\
+        {DICT_CONTAINERS['aria2c']} \\\n\
+        --file-allocation=none -x {MAX_CPU} -d /{path} https://ftp.ensembl.org/pub/release-{ENSEMBL_VERSION_HUMAN}/gff3/homo_sapiens/Homo_sapiens.GRCh38.{ENSEMBL_VERSION_HUMAN}.gff3.gz\n\
+            gzip -d {path}/Homo_sapiens.GRCh38.{ENSEMBL_VERSION_HUMAN}.gff3.gz\n\
+            mv {path}/Homo_sapiens.GRCh38.{ENSEMBL_VERSION_HUMAN}.gff3 {path}/{filename.replace('.gtf', '.gff')}
+    \n\n\n"""
+
+
+    return title + cmd_gtf + cmd_gff
 
 
 
 def download_bed_GRCh38(path_db, file_text):
-    if not db_check(path_db, subfiles_check=[], min_weight=1.5 * GB):
+    if not db_check(path_db, subfiles_check=[], min_weight=500 * MB):
         logger.info(f'Database {path_db} already exists. It will not be downloaded.')
         return ""  # I write the code as such to avoid encapsulation.
     
     title = """echo "### Downloading GRCh38 gene bed file."\n\n"""
+    path, filename = os.path.split(path_db)
     os.makedirs(path, exist_ok=True)
 
     # If the gtf is NOT going to be downloaded we are going to perform the download of the gtf first, and then do the transformation to bed
@@ -185,22 +181,19 @@ def download_bed_GRCh38(path_db, file_text):
     if 'Downloading GRCh38 gene gtf file' not in file_text:
         download_gtf_GRCh38(path_db.replace('.bed', '.gtf'), file_text)
 
-    path, filename = os.path.split(path_db, file_text)
-
-    cmd_gtf_to_bed = f""" docker run -it --rm -v $(pwd)/{path}/:/DB_DOWNLOAD \\\n\
+    cmd_gtf_to_bed = f""" docker run -it --rm -v $(pwd)/{path}/:/database \\\n\
         {DICT_CONTAINERS['bedops']} \\\n\
         sh -c "\\\n\
-            gff2bed < /DB_DOWNLOAD/{filename.replace('bed', 'gff')} > /DB_DOWNLOAD/{filename}\\\n\
+            gff2bed < /database/{filename.replace('bed', 'gff')} > /database/{filename}\\\n\
     "\n\n\n"""
 
     return title + cmd_gtf_to_bed
 
 
-
-def download_star_index_GRCh38(path_db, file_text):
-    subfiles_check = ['chrLength.txt', 'chrNameLength.txt' 'chrName.txt'  'chrStart.txt'  'exonGeTrInfo.tab'  'exonInfo.tab'  'geneInfo.tab'  
-                      'Genome'  'genomeParameters.txt'  'Log.out'  'SA'  'SAindex'  'sjdbInfo.txt'  'sjdbList.fromGTF.out.tab'  
-                      'sjdbList.out.tab'  'transcriptInfo.tab']
+# BUG: FALLA HACER EL GENOME GENERATE!!!!
+def download_star_index_GRCh38(path_db, file_text): 
+    subfiles_check = ['chrLength.txt', 'chrNameLength.txt', 'chrName.txt', 'chrStart.txt', 'exonGeTrInfo.tab', 'exonInfo.tab', 'geneInfo.tab', 
+                      'Genome', 'genomeParameters.txt', 'SA', 'SAindex', 'sjdbInfo.txt', 'sjdbList.fromGTF.out.tab', 'sjdbList.out.tab', 'transcriptInfo.tab']
     
     if not db_check(path_db, subfiles_check=subfiles_check, min_weight=20 * GB):
         logger.info(f'Database {path_db} already exists. It will not be downloaded.')
@@ -213,8 +206,8 @@ def download_star_index_GRCh38(path_db, file_text):
     # Since we will need the genome and gtf file to create the index, we will check if those files have been
     # scripted for download
 
-    if 'Downloading GRCh38 transcript fasta file' not in file_text:
-        download_gtf_GRCh38(DICT_DBS['fasta_GRCh38'][0], file_text)
+    if 'Downloading GRCh38 genome fasta file' not in file_text:
+        download_gtf_GRCh38(DICT_DBS['genome_fasta_GRCh38'][0], file_text)
 
     if 'Downloading GRCh38 gene gtf file' not in file_text:
         download_gtf_GRCh38(DICT_DBS['gtf_GRCh38'][0], file_text)
@@ -225,117 +218,523 @@ def download_star_index_GRCh38(path_db, file_text):
     # gawk '{sum = sum + \$2}END{if ((log(sum)/log(2))/2 - 1 > 14) {printf "%.0f", 14} else {printf "%.0f", (log(sum)/log(2))/2 - 1}}' ${fasta}.fai
     # from https://github.com/nf-core/modules/blob/master/modules/nf-core/star/genomegenerate/main.nf
     # For GRCh38, it gives 14
-    star_index_dir = path_db.strip('database/')
 
-    cmd_STAR_build = f""" docker run -it --rm -v $(pwd)/database:/DB_DOWNLOAD \\\n\
-        {DICT_CONTAINERS['STAR']} \\\n\
+    cmd_STAR_build = f""" docker run -it --rm -v $(pwd)/database:/database \\\n\
+        {DICT_CONTAINERS['rsem-star']} \\\n\
         sh -c " \\\n\
             STAR  \\\n\
             --runMode genomeGenerate \\\n\
-            --genomeDir /DB_DOWNLOAD/{star_index_dir} \\\n\
-            --genomeFastaFiles {DICT_DBS['fasta_GRCh38']}  \\\n\
-            --sjdbGTFfile {DICT_DBS['gtf_GRCh38']} \\\n\
+            --genomeDir /{path_db} \\\n\
+            --genomeFastaFiles /{DICT_DBS['genome_fasta_GRCh38'][0]}  \\\n\
+            --sjdbGTFfile /{DICT_DBS['gtf_GRCh38'][0]} \\\n\
             --runThreadN {MAX_CPU}  \\\n\
             --genomeSAindexNbases 14  \\\n\
-            --limitGenomeGenerateRAM {MAX_RAM}  \\\n\
+            --limitGenomeGenerateRAM {MAX_RAM * 1000 ** 3}  \n\
     "\n\n\n"""
    
     return title + cmd_STAR_build
 
 
 
+
 def download_bowtie_index_GRCh38(path_db, file_text):
     subfiles_check = ['genome.1.ebwt', 'genome.2.ebwt', 'genome.3.ebwt', 'genome.4.ebwt', 'genome.rev.1.ebwt', 'genome.rev.2.ebwt',]
     
-    if not db_check(path_db, subfiles_check=subfiles_check, min_weight=3 * GB):
+    if not db_check(path_db, subfiles_check=subfiles_check, min_weight=3 * GB): 
         logger.info(f'Database {path_db} already exists. It will not be downloaded.')
         return ""  # I write the code as such to avoid encapsulation.
 
     os.makedirs(path_db, exist_ok=True)
-    os.makedirs('aws_downloads', exist_ok=True)
 
-    cmd = f""" docker run -it --rm -v -v ~/.aws:/root/.aws -v $(pwd)/aws_downloads:/aws \\\n\
-        {DICT_CONTAINERS['aws-cli']} \\\n\
-        --no-sign-request --region eu-west-1 sync \\\n\
-            s3://ngi-igenomes/igenomes/Homo_sapiens/NCBI/GRCh38/Sequence/BowtieIndex /aws/BOWTIE
-    "\n\n"""
+    title = """echo "### Generating GRCh38 BOWTIE index file."\n\n"""
 
-    cmd_copy_rm = f"""mv $(pwd)/aws_downloads/BOWTIE $(pwd)/{path_db}\n\
-        rm {path_db}/genome.fa\n\n"""
+    # Since we will need the genome and gtf file to create the index, we will check if those files have been
+    # scripted for download
+
+    if 'Downloading GRCh38 genome fasta file' not in file_text:
+        download_gtf_GRCh38(DICT_DBS['genome_fasta_GRCh38'][0], file_text)
+
+
+    cmd_BOWTIE_build = f""" docker run -it --rm -v $(pwd)/database:/database \\\n\
+        {DICT_CONTAINERS['bowtie']} \\\n\
+        sh -c " \\\n\
+            bowtie-build \\\n\
+                --threads {MAX_CPU} \\\n\
+                    /{DICT_DBS['genome_fasta_GRCh38'][0]} \\\n\
+                    /{DICT_DBS['bowtie_index_GRCh38'][0]}/genome
+    "\n\n\n"""
+
     
-    
-    return cmd + cmd_copy_rm
+    return title + cmd_BOWTIE_build
 
 
 
 def download_bowtie2_index_GRCh38(path_db, file_text):
-    subfiles_check = ['genome.1.ebwt', 'genome.2.ebwt', 'genome.3.ebwt', 'genome.4.ebwt', 'genome.rev.1.ebwt', 'genome.rev.2.ebwt',]
+    subfiles_check = ['genome.1.bt2', 'genome.2.bt2', 'genome.3.bt2', 'genome.4.bt2', 'genome.rev.1.bt2', 'genome.rev.2.bt2',]
     
-    if not db_check(path_db, subfiles_check=subfiles_check, min_weight=3 * GB):
+    if not db_check(path_db, subfiles_check=subfiles_check, min_weight=4 * GB):
         logger.info(f'Database {path_db} already exists. It will not be downloaded.')
         return ""  # I write the code as such to avoid encapsulation.
 
     os.makedirs(path_db, exist_ok=True)
-    os.makedirs('aws_downloads', exist_ok=True)
 
-    cmd = f""" docker run -it --rm -v -v ~/.aws:/root/.aws -v $(pwd)/aws_downloads:/aws \\\n\
-        {DICT_CONTAINERS['aws-cli']} \\\n\
-        --no-sign-request --region eu-west-1 sync \\\n\
-            s3://ngi-igenomes/igenomes/Homo_sapiens/NCBI/GRCh38/Sequence/BowtieIndex /aws/BOWTIE
-    "\n\n"""
+    title = """echo "### Generating GRCh38 BOWTIE2 index file."\n\n"""
 
-    cmd_copy_rm = f"""mv $(pwd)/aws_downloads/BOWTIE $(pwd)/{path_db}\n\
-        rm {path_db}/genome.fa\n\n"""
-    
-    
-    return cmd + cmd_copy_rm
+    # Since we will need the genome and gtf file to create the index, we will check if those files have been
+    # scripted for download
+
+    if 'Downloading GRCh38 genome fasta file' not in file_text:
+        download_gtf_GRCh38(DICT_DBS['genome_fasta_GRCh38'][0], file_text)
+
+
+    cmd_BOWTIE2_build = f""" docker run -it --rm -v $(pwd)/database:/database \\\n\
+        {DICT_CONTAINERS['bowtie2']} \\\n\
+        sh -c " \\\n\
+            bowtie2-build \\\n\
+                --threads {MAX_CPU} \\\n\
+                    /{DICT_DBS['genome_fasta_GRCh38'][0]} \\\n\
+                    /{DICT_DBS['bowtie2_index_GRCh38'][0]}/genome
+    "\n\n\n"""
+
+    return title + cmd_BOWTIE2_build
 
 
 
 def download_bwa_index_GRCh38(path_db, file_text):
-    return ""
+    subfiles_check = [f'genome.{termination}' for termination in ['amb', 'ann', 'bwt', 'pac', 'sa']]
 
-def download_hisat_index_GRCh38(path_db, file_text):
-    return ""
+    if not db_check(path_db, subfiles_check=subfiles_check, min_weight=5 * GB):
+        logger.info(f'Database {path_db} already exists. It will not be downloaded.')
+        return ""  # I write the code as such to avoid encapsulation.
+
+    os.makedirs(path_db, exist_ok=True)
+
+    title = """echo "### Generating GRCh38 BWA index file."\n\n"""
+
+    # Since we will need the genome and gtf file to create the index, we will check if those files have been
+    # scripted for download
+
+    if 'Downloading GRCh38 genome fasta file' not in file_text:
+        download_gtf_GRCh38(DICT_DBS['genome_fasta_GRCh38'][0], file_text)
+
+    cmd_BWA_build = f""" docker run -it --rm -v $(pwd)/database:/database \\\n\
+        {DICT_CONTAINERS['bwa']} \\\n\
+        sh -c " \\\n\
+            bwa \\\n\
+                index \\\n\
+                -p /{DICT_DBS['bwa_index_GRCh38'][0]}/genome \\\n\
+                /{DICT_DBS['genome_fasta_GRCh38'][0]}
+    "\n\n\n"""
+
+    return title + cmd_BWA_build
+
 
 def download_hisat2_index_GRCh38(path_db, file_text):
-    return ""
+    subfiles_check = [f"genome.{N}.ht2" for N in range(1,9)]
+    
+    if not db_check(path_db, subfiles_check=subfiles_check, min_weight=4 * GB):
+        logger.info(f'Database {path_db} already exists. It will not be downloaded.')
+        return ""  # I write the code as such to avoid encapsulation.
+
+    title = """echo "### Building GRCh38 hisat2 index file."\n\n"""
+
+    os.makedirs(path_db, exist_ok=True)
+
+    if 'Downloading GRCh38 genome fasta file' not in file_text:
+        download_gtf_GRCh38(DICT_DBS['genome_fasta_GRCh38'][0], file_text)
+
+
+    if MAX_RAM <= HISAT2_LIMIT_MEM:
+        cmd_HISAT2_index_GRCh38 = f""" docker run -it --rm -v $(pwd)/database/:/database \\\n\
+        {DICT_CONTAINERS['hisat2']} \\\n\
+        sh -c "\\\n\
+            hisat2-build  \\\n\
+            -p {MAX_CPU} \\\n\
+            /{DICT_DBS['genome_fasta_GRCh38'][0]}  \\\n\
+            /{DICT_DBS['hisat2_index_GRCh38'][0]}/genome
+        "\n\n\n"""
+    else:
+
+        if 'Downloading GRCh38 gene gtf file' not in file_text:
+                download_gtf_GRCh38(path_db.replace('.bed', '.gtf'), file_text)
+
+        cmd_HISAT2_index_GRCh38 = f"""docker run -it --rm -v $(pwd)/database/:/database \\\n\
+        {DICT_CONTAINERS['hisat2']} \\\n\
+        sh -c "\\\n\
+            hisat2_extract_splice_sites.py /database/genomes/GRCh38/genes.gtf > genome.splicesites.txt \n\
+            hisat2_extract_exons.py /database/genomes/GRCh38/genes.gtf > genome.exons.txt \n\
+            hisat2-build  \\\n\
+            -p {MAX_CPU} \\\n\
+            --ss genome.splicesites.txt \\\n\
+            --exon genome.exons.txt \\\n\
+            /{DICT_DBS['genome_fasta_GRCh38'][0]}  \\\n\
+            /{DICT_DBS['hisat2_index_GRCh38'][0]}/genome
+        "\n\n\n"""
+
+
+    return title + cmd_HISAT2_index_GRCh38
+
 
 def download_salmon_index_GRCh38(path_db, file_text):
-    return ""
+    subfiles_check = ['complete_ref_lens.bin', 'ctable.bin', 'ctg_offsets.bin', 'duplicate_clusters.tsv', 'info.json', 'mphf.bin', 'pos.bin', 
+                      'pre_indexing.log', 'rank.bin', 'refAccumLengths.bin', 'ref_indexing.log', 'reflengths.bin', 'refseq.bin',
+                       'seq.bin']
+    
+    if not db_check(path_db, subfiles_check=subfiles_check, min_weight=700 * MB):
+        logger.info(f'Database {path_db} already exists. It will not be downloaded.')
+        return ""  # I write the code as such to avoid encapsulation.
+
+    title = """echo "### Building GRCh38 salmon index file."\n\n"""
+    path, filename = os.path.split(path_db)
+
+    os.makedirs(path, exist_ok=True)
+
+    if 'Downloading GRCh38 transcript fasta' not in file_text:
+        download_gtf_GRCh38(DICT_DBS['transcript_fasta_GRCh38'][0], file_text)
+
+    cmd_salmon_index_GRCh38  = f"""docker run -it --rm -v $(pwd)/database/:/database \\\n\
+        {DICT_CONTAINERS['salmon']} \\\n\
+        sh -c "\\\n\
+            salmon index \\\n\
+            -p {MAX_CPU} \\\n\
+            -t /{DICT_DBS['transcript_fasta_GRCh38'][0]} \\\n\
+            -i /{DICT_DBS['salmon_index_GRCh38'][0]}
+        "\n\n\n"""
+
+    return title + cmd_salmon_index_GRCh38
+
+
 
 def download_txp2gene_GRCh38(path_db, file_text):
-    return ""
+    subfiles_check = []
+
+    if not db_check(path_db, subfiles_check=subfiles_check, min_weight=7 * MB):
+        logger.info(f'Database {path_db} already exists. It will not be downloaded.')
+        return ""  # I write the code as such to avoid encapsulation.
+
+    title = """echo "### Building GRCh38 salmon txp2gene file."\n\n"""
+
+    if 'Downloading GRCh38 gene gtf file' not in file_text:
+        download_gtf_GRCh38(DICT_DBS['gtf_GRCh38'][0], file_text)
+
+    cmd_salmon_txp2gene_GRCh38  = f"""docker run -it --rm -v $(pwd)/database/:/database \\\n\
+        {DICT_CONTAINERS['gffread']} \\\n\
+        sh -c "\\\n\
+            gffread \\\n\
+                /{DICT_DBS['gtf_GRCh38'][0]} \\\n\
+                --table transcript_id,gene_id \\\n\
+                    > /{DICT_DBS['txp2gene_GRCh38'][0]}
+        "\n\n\n"""
+
+    return title + cmd_salmon_txp2gene_GRCh38
+
+
 
 def download_rsem_index_GRCh38(path_db, file_text):
-    return ""
+    subfiles_check = [f'genome.{suffix}' for suffix in ['chrlist', 'grp', 'idx.fa', 'n2g.idx.fa', 'seq', 'ti', 'transcripts.fa']] + \
+                     ['chrLength.txt', 'chrNameLength.txt', 'chrName.txt',  'chrStart.txt',  'exonGeTrInfo.tab',  'exonInfo.tab',  'geneInfo.tab',  
+                      'Genome',  'genomeParameters.txt',  'Log.out',  'SA',  'SAindex',  'sjdbInfo.txt',  'sjdbList.fromGTF.out.tab',  
+                      'sjdbList.out.tab',  'transcriptInfo.tab']
+    
+    
+    if not db_check(path_db, subfiles_check=subfiles_check, min_weight=30 * GB):
+        logger.info(f'Database {path_db} already exists. It will not be downloaded.')
+        return ""  # I write the code as such to avoid encapsulation.
+
+    title = """echo "### Building GRCh38 rsem index file."\n\n"""
+    os.makedirs(path_db, exist_ok=True)
+
+    if 'Downloading GRCh38 genome fasta file' not in file_text:
+        download_gtf_GRCh38(DICT_DBS['genome_fasta_GRCh38'][0], file_text)
+
+    if 'Downloading GRCh38 gene gtf file' not in file_text:
+        download_gtf_GRCh38(DICT_DBS['gtf_GRCh38'][0], file_text)
+
+
+    cmd_rsem_index_GRCh38  = f"""docker run -it --rm -v $(pwd)/database/:/database \\\n\
+        {DICT_CONTAINERS['rsem-star']} \\\n\
+        sh -c "\\\n\
+            rsem-prepare-reference \\\n\
+            --gtf \{DICT_DBS['gtf_GRCh38'][0]} \\\n\
+            --star \\\n\
+            --star-path /usr/local/bin \\\n\
+            -p {MAX_CPU} \\\n\
+            /{DICT_DBS['genome_fasta_GRCh38'][0]} \\\n\
+            /{DICT_DBS['rsem_index_GRCh38'][0]}/genome
+        "\n\n\n"""
+
+    
+    return title + cmd_rsem_index_GRCh38
+
+
 
 def download_kallisto_index_GRCh38(path_db, file_text):
-    return ""
+    subfiles_check = []
+    
+    if not db_check(path_db, subfiles_check=subfiles_check, min_weight=300 * MB):
+        logger.info(f'Database {path_db} already exists. It will not be downloaded.')
+        return ""  # I write the code as such to avoid encapsulation.
 
-def download_kallisto_gene_map_GRCh38(path_db, file_text):
-    return ""
+    title = """echo "### Building GRCh38 kallisto index file."\n\n"""
+    path, filename = os.path.split(path_db)
+    os.makedirs(path, exist_ok=True)
+
+    if 'Downloading GRCh38 gene gtf file' not in file_text:
+            download_gtf_GRCh38(path_db.replace('.bed', '.gtf'), file_text)
+
+    cmd_kallisto_index_GRCh38 = f""" docker run -it --rm -v $(pwd)/database/:/database \\\n\
+        {DICT_CONTAINERS['kallisto']} \\\n\
+        sh -c "\\\n\
+            kallisto index -i {filename} \\\n\
+            -t {MAX_CPU} \\\n\
+            /{DICT_DBS['transcript_fasta_GRCh38'][0]} && mv {filename} /{path}/{filename}
+    "\n\n\n"""
+
+
+    return title + cmd_kallisto_index_GRCh38
+
 
 def download_cellranger_index_GRCh38(path_db, file_text):
-    return ""
+    subfiles_check = ['fasta/genome.fa', 'fasta/genome.fa.fai', 'genes/genes.gtf.gz', 'reference.json'] + \
+                     [f'star/{file}' for file in ['chrLength.txt', 'chrNameLength.txt', 'chrName.txt', 'chrStart.txt', 'exonGeTrInfo.tab', 
+                                                  'exonInfo.tab', 'geneInfo.tab', 'Genome', 'genomeParameters.txt', 'SA', 'SAindex',  'sjdbInfo.txt', 
+                                                  'sjdbList.fromGTF.out.tab', 'sjdbList.out.tab', 'transcriptInfo.tab']]
+    
+    if not db_check(path_db, subfiles_check=subfiles_check, min_weight=16 * GB):
+        logger.info(f'Database {path_db} already exists. It will not be downloaded.')
+        return ""  # I write the code as such to avoid encapsulation.
+
+    title = """echo "### Building GRCh38 cellranger index file."\n\n"""
+    path, filename = os.path.split(path_db)
+    os.makedirs(path_db, exist_ok=True)
+
+    if 'Downloading GRCh38 genome fasta file' not in file_text:
+        download_gtf_GRCh38(DICT_DBS['genome_fasta_GRCh38'][0], file_text)
+    
+    if 'Downloading GRCh38 gene gtf file' not in file_text:
+            download_gtf_GRCh38(path_db.replace('.bed', '.gtf'), file_text)
+
+    cmd_cellranger_index_GRCh38 = f""" docker run -it --rm -v $(pwd)/database/:/database \\\n\
+        {DICT_CONTAINERS['cellranger']} \\\n\
+        sh -c "\\\n\
+            cellranger mkref \\\n\
+            --genome  {filename} \\\n\
+            --fasta /{DICT_DBS['genome_fasta_GRCh38'][0]} \\\n\
+            --genes /{DICT_DBS['gtf_GRCh38'][0]} \\\n\
+            --nthreads={MAX_CPU}\n\
+            mv /cellranger /{path}
+    "\n\n\n"""
+
+    return title + cmd_cellranger_index_GRCh38
+
+
 
 def download_universc_index_GRCh38(path_db, file_text):
-    return ""
+    subfiles_check = ['fasta/genome.fa', 'fasta/genome.fa.fai', 'genes/genes.gtf.gz', 'reference.json'] + \
+                     [f'star/{file}' for file in ['chrLength.txt', 'chrNameLength.txt', 'chrName.txt', 'chrStart.txt', 'exonGeTrInfo.tab', 
+                                                  'exonInfo.tab', 'geneInfo.tab', 'Genome', 'genomeParameters.txt', 'SA', 'SAindex',  'sjdbInfo.txt', 
+                                                  'sjdbList.fromGTF.out.tab', 'sjdbList.out.tab', 'transcriptInfo.tab']]
+    
+    if not db_check(path_db, subfiles_check=subfiles_check, min_weight=16 * GB):
+        logger.info(f'Database {path_db} already exists. It will not be downloaded.')
+        return ""  # I write the code as such to avoid encapsulation.
+
+    title = """echo "### Building GRCh38 universc index file."\n\n"""
+    path, filename = os.path.split(path_db)
+    os.makedirs(path_db, exist_ok=True)
+
+    if 'Downloading GRCh38 genome fasta file' not in file_text:
+        download_gtf_GRCh38(DICT_DBS['genome_fasta_GRCh38'][0], file_text)
+    
+    if 'Downloading GRCh38 gene gtf file' not in file_text:
+            download_gtf_GRCh38(path_db.replace('.bed', '.gtf'), file_text)
+
+    cmd_universc_index_GRCh38 = f""" docker run -it --rm -v $(pwd)/database/:/database \\\n\
+        {DICT_CONTAINERS['cellranger']} \\\n\
+        sh -c "\\\n\
+            cellranger mkref \\\n\
+            --genome  {filename} \\\n\
+            --fasta /{DICT_DBS['genome_fasta_GRCh38'][0]} \\\n\
+            --genes /{DICT_DBS['gtf_GRCh38'][0]} \\\n\
+            --nthreads={MAX_CPU}\n\
+            mv /universc /{path}
+    "\n\n\n"""
+
+    return title + cmd_universc_index_GRCh38
+
 
 def download_segemehl_index_GRCh38(path_db, file_text):
-    return ""
+    subfiles_check = ['genome.idx']
+    
+    if not db_check(path_db, subfiles_check=subfiles_check, min_weight=45 * GB):
+        logger.info(f'Database {path_db} already exists. It will not be downloaded.')
+        return ""  # I write the code as such to avoid encapsulation.
+
+    title = """echo "### Building GRCh38 segemehl index file."\n\n"""
+    os.makedirs(path_db, exist_ok=True)
+
+    if 'Downloading GRCh38 genome fasta file' not in file_text:
+        download_gtf_GRCh38(DICT_DBS['genome_fasta_GRCh38'][0], file_text)
+    
+    if 'Downloading GRCh38 gene gtf file' not in file_text:
+            download_gtf_GRCh38(path_db.replace('.bed', '.gtf'), file_text)
+
+    cmd_segemehl_index_GRCh38 = f""" docker run -it --rm -v $(pwd)/database/:/database \\\n\
+        {DICT_CONTAINERS['segemehl']} \\\n\
+        sh -c "\\\n\
+            segemehl.x \\\n\
+            -t {MAX_CPU} \\\n\
+            -d /{DICT_DBS['genome_fasta_GRCh38'][0]} \\\n\
+            -x /{path_db}/genome.idx 
+    "\n\n\n"""
+
+
+    return title + cmd_segemehl_index_GRCh38
+
+
 
 def download_aa_data_repo_index_GRCh38(path_db, file_text):
-    return ""
+    subfiles_check = ['annotations/hg38GenomicSuperDup.tab', 'cancer/oncogene_list_hg38.txt', 'cancer/oncogene_list.txt', 
+                      'dummy_ploidy.vcf', 'GCA_000001405.15_GRCh38_no_alt_analysis_set.fa', 
+                      'GCA_000001405.15_GRCh38_no_alt_analysis_set.fa.fai', 'GRCh38_centromere.bed', 'hg38full_k35_noMM.mappability.bedgraph',
+                      'exclude.cnvnator_100bp.GRCh38.20170403.bed', 'GCA_000001405.15_GRCh38_no_alt_analysis_set.fa.amb', 'GCA_000001405.15_GRCh38_no_alt_analysis_set.fa.pac', 'GRCh38_cnvkit_filtered_ref.cnn', 'last_updated.txt', 
+                      'chrom_list.txt', 'file_list.txt', 'GCA_000001405.15_GRCh38_no_alt_analysis_set.fa.ann', 'GCA_000001405.15_GRCh38_no_alt_analysis_set.fa.sa', 'GRCh38_merged_centromeres_conserved_sorted.bed', 'refGene.txt', 
+                      'conserved_gain5_hg38.bed', 'file_sources.txt', 'GCA_000001405.15_GRCh38_no_alt_analysis_set.fa.bwt', 'Genes_hg38.gff', 'GRCh38_noAlt.fa.fai']
+    
+    if not db_check(path_db, subfiles_check=subfiles_check, min_weight=9 * GB):
+        logger.info(f'Database {path_db} already exists. It will not be downloaded.')
+        return ""  # I write the code as such to avoid encapsulation.
+
+    title = """echo "### Building GRCh38 ampliconarchitect index file."\n\n"""
+    os.makedirs(path_db, exist_ok=True)
+
+    cmd_aa_repo_index_GRCh38 = f""" docker run -it --rm -v $(pwd)/database/:/database \\\n\
+        {DICT_CONTAINERS['aria2c']} \\\n\
+         -x {MAX_CPU} \\\n\
+         -d /{path_db} \\\n\
+         --file-allocation=none \\\n\
+         https://datasets.genepattern.org/data/module_support_files/AmpliconArchitect/GRCh38_indexed.tar.gz \n\
+         tar xzvf {path_db}/GRCh38_indexed.tar.gz -C {path_db}\n\
+         mv {path_db}/GRCh38/* {path_db} \n\
+         rm -rf {path_db}/GRCh38_indexed.tar.gz {path_db}/GRCh38
+    \n\n\n"""
+
+    return title + cmd_aa_repo_index_GRCh38
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
 
 def download_fasta_CHM13(path_db, file_text):
-    return ""
+    if not db_check(path_db, subfiles_check=[], min_weight=3 * GB):
+        logger.info(f'Database {path_db} already exists. It will not be downloaded.')
+        return ""  # I write the code as such to avoid encapsulation.
+
+        
+    path, _ = os.path.split(path_db)
+    os.makedirs(path, exist_ok=True)
+
+    title = """echo "### Downloading CHM13 genome fasta file."\n\n"""
+
+
+    cmd = f""" docker run -it --rm -v $(pwd)/database/:/database \\\n\
+        {DICT_CONTAINERS['ncbi-datasets']} \\\n\
+        datasets download genome \\\n\
+        accession GCA_009914755.3 \\\n\
+        --filename {path_db}.zip \n\
+        unzip {path_db}.zip -d {path} \n\
+        mv {path}/ncbi_dataset/data/GCA_009914755.3/GCA_009914755.3_T2T-CHM13v1.1_genomic.fna {path_db} \n\
+        rm -rf {path}/README.md {path_db}.zip {path}/ncbi_dataset
+    \n\n\n"""
+    
+    return title + cmd 
+
 
 def download_bowtie2_index_CHM13(path_db, file_text):
-    return ""
+    subfiles_check = ['genome.1.ebwt', 'genome.2.ebwt', 'genome.3.ebwt', 'genome.4.ebwt', 'genome.rev.1.ebwt', 'genome.rev.2.ebwt',]
+    
+    if not db_check(path_db, subfiles_check=subfiles_check, min_weight=3 * GB): 
+        logger.info(f'Database {path_db} already exists. It will not be downloaded.')
+        return ""  # I write the code as such to avoid encapsulation.
+
+    os.makedirs(path_db, exist_ok=True)
+
+    title = """echo "### Generating CHM13 BOWTIE index file."\n\n"""
+
+    # Since we will need the genome and gtf file to create the index, we will check if those files have been
+    # scripted for download
+
+    if 'Downloading CHM13 genome fasta file' not in file_text:
+        download_gtf_GRCh38(DICT_DBS['genome_fasta_CHM13'][0], file_text)
+
+
+    cmd_BOWTIE_build = f""" docker run -it --rm -v $(pwd)/database:/database \\\n\
+        {DICT_CONTAINERS['bowtie']} \\\n\
+        sh -c " \\\n\
+            bowtie-build \\\n\
+                --threads {MAX_CPU} \\\n\
+                    /{DICT_DBS['genome_fasta_CHM13'][0]} \\\n\
+                    /{DICT_DBS['bowtie2_index_CHM13'][0]}/genome
+    "\n\n\n"""
+
+    
+    return title + cmd_BOWTIE_build
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -344,96 +743,739 @@ def download_bowtie2_index_CHM13(path_db, file_text):
 
 
 def download_fasta_GRCm38(path_db, file_text):
-    return ""
+    if not db_check(path_db, subfiles_check=[], min_weight=2.7 * GB):
+        logger.info(f'Database {path_db} already exists. It will not be downloaded.')
+        return ""  # I write the code as such to avoid encapsulation.
+
+        
+    path, filename = os.path.split(path_db)
+
+    title = """echo "### Downloading GRCm38 genome fasta file."\n\n"""
+
+    cmd = f""" docker run -it --rm -v $(pwd)/database/:/database \\\n\
+        {DICT_CONTAINERS['aria2c']} \\\n\
+        --file-allocation=none -x {MAX_CPU} -d /{path} https://ftp.ensembl.org/pub/release-{ENSEMBL_VERSION_MOUSE}/fasta/mus_musculus/dna/Mus_musculus.GRCm38.dna_sm.primary_assembly.fa.gz\n\
+            gzip -d {path}/Mus_musculus.GRCm38.dna_sm.primary_assembly.fa.gz\n\
+            mv {path}/Mus_musculus.GRCm38.dna_sm.primary_assembly.fa {path}/{filename}
+    \n\n\n"""
+
+
+    cmd_index_fai = f""" docker run -it --rm -v $(pwd)/{path}/:/database \\\n\
+        {DICT_CONTAINERS['samtools']} \\\n\
+        sh -c "\\\n\
+            samtools faidx /database/{filename}\\\n\
+    "\n\n\n"""  
+    
+    
+    return title + cmd + cmd_index_fai
+
+   
 
 def download_transcript_fasta_GRCm38(path_db, file_text):
-    return ""
+    if not db_check(path_db, subfiles_check=[], min_weight=250 * MB):
+        logger.info(f'Database {path_db} already exists. It will not be downloaded.')
+        return ""  # I write the code as such to avoid encapsulation.
+
+        
+    path, filename = os.path.split(path_db)
+    os.makedirs(path, exist_ok=True)
+    
+    title = """echo "### Downloading GRCm38 transcript fasta file."\n\n"""
+
+    cmd = f""" docker run -it --rm -v $(pwd)/database/:/database \\\n\
+        {DICT_CONTAINERS['aria2c']} \\\n\
+        --file-allocation=none -x {MAX_CPU} -d /{path} https://ftp.ensembl.org/pub/release-{ENSEMBL_VERSION_MOUSE}/fasta/mus_musculus/cdna/Mus_musculus.GRCm38.cdna.all.fa.gz\n\
+            gzip -d {path}/Mus_musculus.GRCm38.cdna.all.fa.gz\n\
+            mv {path}/Mus_musculus.GRCm38.cdna.all.fa {path}/{filename}
+    \n\n\n"""
+
+
+    return title + cmd
+
+
 
 def download_gtf_GRCm38(path_db, file_text):
-    return ""
+    if not db_check(path_db, subfiles_check=[], min_weight=500 * MB):
+        logger.info(f'Database {path_db} already exists. It will not be downloaded.')
+        return ""  # I write the code as such to avoid encapsulation.
+
+        
+    path, filename = os.path.split(path_db)
+    os.makedirs(path, exist_ok=True)
+
+    title = """echo "### Downloading GRCm38 gene gtf file."\n\n"""
+
+    cmd_gtf = f""" docker run -it --rm -v $(pwd)/database/:/database \\\n\
+        {DICT_CONTAINERS['aria2c']} \\\n\
+        --file-allocation=none -x {MAX_CPU} -d /{path} https://ftp.ensembl.org/pub/release-{ENSEMBL_VERSION_MOUSE}/gtf/mus_musculus/Mus_musculus.GRCm38.{ENSEMBL_VERSION_MOUSE}.gtf.gz\n\
+            gzip -d {path}/Mus_musculus.GRCm38.{ENSEMBL_VERSION_MOUSE}.gtf.gz\n\
+            mv {path}/Mus_musculus.GRCm38.{ENSEMBL_VERSION_MOUSE}.gtf {path}/{filename}
+    \n\n\n"""
+
+
+    cmd_gff = f""" docker run -it --rm -v $(pwd)/database/:/database \\\n\
+        {DICT_CONTAINERS['aria2c']} \\\n\
+        --file-allocation=none -x {MAX_CPU} -d /{path} https://ftp.ensembl.org/pub/release-{ENSEMBL_VERSION_MOUSE}/gff3/mus_musculus/Mus_musculus.GRCm38.{ENSEMBL_VERSION_MOUSE}.gff3.gz\n\
+            gzip -d {path}/Mus_musculus.GRCm38.{ENSEMBL_VERSION_MOUSE}.gff3.gz\n\
+            mv {path}/Mus_musculus.GRCm38.{ENSEMBL_VERSION_MOUSE}.gff3 {path}/{filename.replace('.gtf', '.gff')}
+    \n\n\n"""
+
+
+    return title + cmd_gtf + cmd_gff
+
+
 
 def download_bed_GRCm38(path_db, file_text):
-    return ""
+    if not db_check(path_db, subfiles_check=[], min_weight=500 * MB):
+        logger.info(f'Database {path_db} already exists. It will not be downloaded.')
+        return ""  # I write the code as such to avoid encapsulation.
+    
+    title = """echo "### Downloading GRCm38 gene bed file."\n\n"""
+    path, filename = os.path.split(path_db)
+    os.makedirs(path, exist_ok=True)
 
-def download_star_index_GRCm38(path_db, file_text):
-    return ""
+    # If the gtf is NOT going to be downloaded we are going to perform the download of the gtf first, and then do the transformation to bed
+
+    if 'Downloading GRCm38 gene gtf file' not in file_text:
+        download_gtf_GRCm38(path_db.replace('.bed', '.gtf'), file_text)
+
+    cmd_gtf_to_bed = f""" docker run -it --rm -v $(pwd)/{path}/:/database \\\n\
+        {DICT_CONTAINERS['bedops']} \\\n\
+        sh -c "\\\n\
+            gff2bed < /database/{filename.replace('bed', 'gff')} > /database/{filename}\\\n\
+    "\n\n\n"""
+
+    return title + cmd_gtf_to_bed
+
+
+
+def download_star_index_GRCm38(path_db, file_text): 
+    subfiles_check = ['chrLength.txt', 'chrNameLength.txt', 'chrName.txt', 'chrStart.txt', 'exonGeTrInfo.tab', 'exonInfo.tab', 'geneInfo.tab', 
+                      'Genome', 'genomeParameters.txt', 'SA', 'SAindex', 'sjdbInfo.txt', 'sjdbList.fromGTF.out.tab', 'sjdbList.out.tab', 'transcriptInfo.tab']
+    
+    if not db_check(path_db, subfiles_check=subfiles_check, min_weight=25 * GB):
+        logger.info(f'Database {path_db} already exists. It will not be downloaded.')
+        return ""  # I write the code as such to avoid encapsulation.
+
+    os.makedirs(path_db, exist_ok=True)
+
+    title = """echo "### Generating GRCm38 STAR index file."\n\n"""
+
+    # Since we will need the genome and gtf file to create the index, we will check if those files have been
+    # scripted for download
+
+    if 'Downloading GRCm38 genome fasta file' not in file_text:
+        download_gtf_GRCm38(DICT_DBS['genome_fasta_GRCm38'][0], file_text)
+
+    if 'Downloading GRCm38 gene gtf file' not in file_text:
+        download_gtf_GRCm38(DICT_DBS['gtf_GRCm38'][0], file_text)
+
+
+    
+    # The number of bases in genomeSAindexNbases 14 is determined by the command 
+    # gawk '{sum = sum + \$2}END{if ((log(sum)/log(2))/2 - 1 > 14) {printf "%.0f", 14} else {printf "%.0f", (log(sum)/log(2))/2 - 1}}' ${fasta}.fai
+    # from https://github.com/nf-core/modules/blob/master/modules/nf-core/star/genomegenerate/main.nf
+    # For GRCm38, it gives 14
+
+    cmd_STAR_build = f""" docker run -it --rm -v $(pwd)/database:/database \\\n\
+        {DICT_CONTAINERS['rsem-star']} \\\n\
+        sh -c " \\\n\
+            STAR  \\\n\
+            --runMode genomeGenerate \\\n\
+            --genomeDir /{path_db} \\\n\
+            --genomeFastaFiles /{DICT_DBS['genome_fasta_GRCm38'][0]}  \\\n\
+            --sjdbGTFfile /{DICT_DBS['gtf_GRCm38'][0]} \\\n\
+            --runThreadN {MAX_CPU}  \\\n\
+            --genomeSAindexNbases 14  \\\n\
+            --limitGenomeGenerateRAM {MAX_RAM * 1000 ** 3}  \n\
+    "\n\n\n"""
+   
+    return title + cmd_STAR_build
+
+
+
 
 def download_bowtie_index_GRCm38(path_db, file_text):
-    return ""
+    subfiles_check = ['genome.1.ebwt', 'genome.2.ebwt', 'genome.3.ebwt', 'genome.4.ebwt', 'genome.rev.1.ebwt', 'genome.rev.2.ebwt',]
+    
+    if not db_check(path_db, subfiles_check=subfiles_check, min_weight=2.5 * GB): 
+        logger.info(f'Database {path_db} already exists. It will not be downloaded.')
+        return ""  # I write the code as such to avoid encapsulation.
+
+    os.makedirs(path_db, exist_ok=True)
+
+    title = """echo "### Generating GRCm38 BOWTIE index file."\n\n"""
+
+    # Since we will need the genome and gtf file to create the index, we will check if those files have been
+    # scripted for download
+
+    if 'Downloading GRCm38 genome fasta file' not in file_text:
+        download_gtf_GRCm38(DICT_DBS['genome_fasta_GRCm38'][0], file_text)
+
+
+    cmd_BOWTIE_build = f""" docker run -it --rm -v $(pwd)/database:/database \\\n\
+        {DICT_CONTAINERS['bowtie']} \\\n\
+        sh -c " \\\n\
+            bowtie-build \\\n\
+                --threads {MAX_CPU} \\\n\
+                    /{DICT_DBS['genome_fasta_GRCm38'][0]} \\\n\
+                    /{DICT_DBS['bowtie_index_GRCm38'][0]}/genome
+    "\n\n\n"""
+
+    
+    return title + cmd_BOWTIE_build
+
+
 
 def download_bowtie2_index_GRCm38(path_db, file_text):
-    return ""
+    subfiles_check = ['genome.1.bt2', 'genome.2.bt2', 'genome.3.bt2', 'genome.4.bt2', 'genome.rev.1.bt2', 'genome.rev.2.bt2',]
+    
+    if not db_check(path_db, subfiles_check=subfiles_check, min_weight=3.5 * GB):
+        logger.info(f'Database {path_db} already exists. It will not be downloaded.')
+        return ""  # I write the code as such to avoid encapsulation.
+
+    os.makedirs(path_db, exist_ok=True)
+
+    title = """echo "### Generating GRCm38 BOWTIE2 index file."\n\n"""
+
+    # Since we will need the genome and gtf file to create the index, we will check if those files have been
+    # scripted for download
+
+    if 'Downloading GRCm38 genome fasta file' not in file_text:
+        download_gtf_GRCm38(DICT_DBS['genome_fasta_GRCm38'][0], file_text)
+
+
+    cmd_BOWTIE2_build = f""" docker run -it --rm -v $(pwd)/database:/database \\\n\
+        {DICT_CONTAINERS['bowtie2']} \\\n\
+        sh -c " \\\n\
+            bowtie2-build \\\n\
+                --threads {MAX_CPU} \\\n\
+                    /{DICT_DBS['genome_fasta_GRCm38'][0]} \\\n\
+                    /{DICT_DBS['bowtie2_index_GRCm38'][0]}/genome
+    "\n\n\n"""
+
+    return title + cmd_BOWTIE2_build
+
+
 
 def download_bwa_index_GRCm38(path_db, file_text):
-    return ""
+    subfiles_check = [f'genome.{termination}' for termination in ['amb', 'ann', 'bwt', 'pac', 'sa']]
 
-def download_hisat_index_GRCm38(path_db, file_text):
-    return ""
+    if not db_check(path_db, subfiles_check=subfiles_check, min_weight=4.5 * GB):
+        logger.info(f'Database {path_db} already exists. It will not be downloaded.')
+        return ""  # I write the code as such to avoid encapsulation.
+
+    os.makedirs(path_db, exist_ok=True)
+
+    title = """echo "### Generating GRCm38 BWA index file."\n\n"""
+
+    # Since we will need the genome and gtf file to create the index, we will check if those files have been
+    # scripted for download
+
+    if 'Downloading GRCm38 genome fasta file' not in file_text:
+        download_gtf_GRCm38(DICT_DBS['genome_fasta_GRCm38'][0], file_text)
+
+    cmd_BWA_build = f""" docker run -it --rm -v $(pwd)/database:/database \\\n\
+        {DICT_CONTAINERS['bwa']} \\\n\
+        sh -c " \\\n\
+            bwa \\\n\
+                index \\\n\
+                -p /{DICT_DBS['bwa_index_GRCm38'][0]}/genome \\\n\
+                /{DICT_DBS['genome_fasta_GRCm38'][0]}
+    "\n\n\n"""
+
+    return title + cmd_BWA_build
+
 
 def download_hisat2_index_GRCm38(path_db, file_text):
-    return ""
+    subfiles_check = [f"genome.{N}.ht2" for N in range(1,9)]
+    
+    if not db_check(path_db, subfiles_check=subfiles_check, min_weight=4 * GB):
+        logger.info(f'Database {path_db} already exists. It will not be downloaded.')
+        return ""  # I write the code as such to avoid encapsulation.
+
+    title = """echo "### Building GRCm38 hisat2 index file."\n\n"""
+
+    os.makedirs(path_db, exist_ok=True)
+
+    if 'Downloading GRCm38 genome fasta file' not in file_text:
+        download_gtf_GRCm38(DICT_DBS['genome_fasta_GRCm38'][0], file_text)
+
+
+    if MAX_RAM <= HISAT2_LIMIT_MEM:
+        cmd_HISAT2_index_GRCm38 = f""" docker run -it --rm -v $(pwd)/database/:/database \\\n\
+        {DICT_CONTAINERS['hisat2']} \\\n\
+        sh -c "\\\n\
+            hisat2-build  \\\n\
+            -p {MAX_CPU} \\\n\
+            /{DICT_DBS['genome_fasta_GRCm38'][0]}  \\\n\
+            /{DICT_DBS['hisat2_index_GRCm38'][0]}/genome
+        "\n\n\n"""
+    else:
+
+        if 'Downloading GRCm38 gene gtf file' not in file_text:
+                download_gtf_GRCm38(path_db.replace('.bed', '.gtf'), file_text)
+
+        cmd_HISAT2_index_GRCm38 = f"""docker run -it --rm -v $(pwd)/database/:/database \\\n\
+        {DICT_CONTAINERS['hisat2']} \\\n\
+        sh -c "\\\n\
+            hisat2_extract_splice_sites.py /database/genomes/GRCm38/genes.gtf > genome.splicesites.txt \n\
+            hisat2_extract_exons.py /database/genomes/GRCm38/genes.gtf > genome.exons.txt \n\
+            hisat2-build  \\\n\
+            -p {MAX_CPU} \\\n\
+            --ss genome.splicesites.txt \\\n\
+            --exon genome.exons.txt \\\n\
+            /{DICT_DBS['genome_fasta_GRCm38'][0]}  \\\n\
+            /{DICT_DBS['hisat2_index_GRCm38'][0]}/genome
+        "\n\n\n"""
+
+
+    return title + cmd_HISAT2_index_GRCm38
+
 
 def download_salmon_index_GRCm38(path_db, file_text):
-    return ""
+    subfiles_check = ['complete_ref_lens.bin', 'ctable.bin', 'ctg_offsets.bin', 'duplicate_clusters.tsv', 'info.json', 'mphf.bin', 'pos.bin', 
+                      'pre_indexing.log', 'rank.bin', 'refAccumLengths.bin', 'ref_indexing.log', 'reflengths.bin', 'refseq.bin',
+                       'seq.bin']
+    
+    if not db_check(path_db, subfiles_check=subfiles_check, min_weight=500 * MB):
+        logger.info(f'Database {path_db} already exists. It will not be downloaded.')
+        return ""  # I write the code as such to avoid encapsulation.
+
+    title = """echo "### Building GRCm38 salmon index file."\n\n"""
+    path, filename = os.path.split(path_db)
+
+    os.makedirs(path, exist_ok=True)
+
+    if 'Downloading GRCm38 transcript fasta' not in file_text:
+        download_gtf_GRCm38(DICT_DBS['transcript_fasta_GRCm38'][0], file_text)
+
+    cmd_salmon_index_GRCm38  = f"""docker run -it --rm -v $(pwd)/database/:/database \\\n\
+        {DICT_CONTAINERS['salmon']} \\\n\
+        sh -c "\\\n\
+            salmon index \\\n\
+            -p {MAX_CPU} \\\n\
+            -t /{DICT_DBS['transcript_fasta_GRCm38'][0]} \\\n\
+            -i /{DICT_DBS['salmon_index_GRCm38'][0]}
+        "\n\n\n"""
+
+    return title + cmd_salmon_index_GRCm38
+
+
 
 def download_txp2gene_GRCm38(path_db, file_text):
-    return ""
-    
+    subfiles_check = []
+
+    if not db_check(path_db, subfiles_check=subfiles_check, min_weight=5 * MB):
+        logger.info(f'Database {path_db} already exists. It will not be downloaded.')
+        return ""  # I write the code as such to avoid encapsulation.
+
+    title = """echo "### Building GRCm38 salmon txp2gene file."\n\n"""
+
+    if 'Downloading GRCm38 gene gtf file' not in file_text:
+        download_gtf_GRCm38(DICT_DBS['gtf_GRCm38'][0], file_text)
+
+    cmd_salmon_txp2gene_GRCm38  = f"""docker run -it --rm -v $(pwd)/database/:/database \\\n\
+        {DICT_CONTAINERS['gffread']} \\\n\
+        sh -c "\\\n\
+            gffread \\\n\
+                /{DICT_DBS['gtf_GRCm38'][0]} \\\n\
+                --table transcript_id,gene_id \\\n\
+                    > /{DICT_DBS['txp2gene_GRCm38'][0]}
+        "\n\n\n"""
+
+    return title + cmd_salmon_txp2gene_GRCm38
+
+
+
 def download_rsem_index_GRCm38(path_db, file_text):
-    return ""
+    subfiles_check = [f'genome.{suffix}' for suffix in ['chrlist', 'grp', 'idx.fa', 'n2g.idx.fa', 'seq', 'ti', 'transcripts.fa']] + \
+                     ['chrLength.txt', 'chrNameLength.txt', 'chrName.txt',  'chrStart.txt',  'exonGeTrInfo.tab',  'exonInfo.tab',  'geneInfo.tab',  
+                      'Genome',  'genomeParameters.txt',  'Log.out',  'SA',  'SAindex',  'sjdbInfo.txt',  'sjdbList.fromGTF.out.tab',  
+                      'sjdbList.out.tab',  'transcriptInfo.tab']
+    
+    
+    if not db_check(path_db, subfiles_check=subfiles_check, min_weight=27 * GB):
+        logger.info(f'Database {path_db} already exists. It will not be downloaded.')
+        return ""  # I write the code as such to avoid encapsulation.
+
+    title = """echo "### Building GRCm38 rsem index file."\n\n"""
+    os.makedirs(path_db, exist_ok=True)
+
+    if 'Downloading GRCm38 genome fasta file' not in file_text:
+        download_gtf_GRCm38(DICT_DBS['genome_fasta_GRCm38'][0], file_text)
+
+    if 'Downloading GRCm38 gene gtf file' not in file_text:
+        download_gtf_GRCm38(DICT_DBS['gtf_GRCm38'][0], file_text)
+
+
+    cmd_rsem_index_GRCm38  = f"""docker run -it --rm -v $(pwd)/database/:/database \\\n\
+        {DICT_CONTAINERS['rsem-star']} \\\n\
+        sh -c "\\\n\
+            rsem-prepare-reference \\\n\
+            --gtf \{DICT_DBS['gtf_GRCm38'][0]} \\\n\
+            --star \\\n\
+            --star-path /usr/local/bin \\\n\
+            -p {MAX_CPU} \\\n\
+            /{DICT_DBS['genome_fasta_GRCm38'][0]} \\\n\
+            /{DICT_DBS['rsem_index_GRCm38'][0]}/genome
+        "\n\n\n"""
+
+    
+    return title + cmd_rsem_index_GRCm38
+
+
 
 def download_kallisto_index_GRCm38(path_db, file_text):
-    return ""
+    subfiles_check = []
+    
+    if not db_check(path_db, subfiles_check=subfiles_check, min_weight=180 * MB):
+        logger.info(f'Database {path_db} already exists. It will not be downloaded.')
+        return ""  # I write the code as such to avoid encapsulation.
 
-def download_kallisto_gene_map_GRCm38(path_db, file_text):
-    return ""
+    title = """echo "### Building GRCm38 kallisto index file."\n\n"""
+    path, filename = os.path.split(path_db)
+    os.makedirs(path, exist_ok=True)
+
+    if 'Downloading GRCm38 gene gtf file' not in file_text:
+            download_gtf_GRCm38(path_db.replace('.bed', '.gtf'), file_text)
+
+    cmd_kallisto_index_GRCm38 = f""" docker run -it --rm -v $(pwd)/database/:/database \\\n\
+        {DICT_CONTAINERS['kallisto']} \\\n\
+        sh -c "\\\n\
+            kallisto index -i {filename} \\\n\
+            -t {MAX_CPU} \\\n\
+            /{DICT_DBS['transcript_fasta_GRCm38'][0]} && mv {filename} /{path}/{filename}
+    "\n\n\n"""
+
+
+    return title + cmd_kallisto_index_GRCm38
+
 
 def download_cellranger_index_GRCm38(path_db, file_text):
-    return ""
+    subfiles_check = ['fasta/genome.fa', 'fasta/genome.fa.fai', 'genes/genes.gtf.gz', 'reference.json'] + \
+                     [f'star/{file}' for file in ['chrLength.txt', 'chrNameLength.txt', 'chrName.txt', 'chrStart.txt', 'exonGeTrInfo.tab', 
+                                                  'exonInfo.tab', 'geneInfo.tab', 'Genome', 'genomeParameters.txt', 'SA', 'SAindex',  'sjdbInfo.txt', 
+                                                  'sjdbList.fromGTF.out.tab', 'sjdbList.out.tab', 'transcriptInfo.tab']]
+    
+    if not db_check(path_db, subfiles_check=subfiles_check, min_weight=14.5 * GB):
+        logger.info(f'Database {path_db} already exists. It will not be downloaded.')
+        return ""  # I write the code as such to avoid encapsulation.
+
+    title = """echo "### Building GRCm38 cellranger index file."\n\n"""
+    path, filename = os.path.split(path_db)
+    os.makedirs(path_db, exist_ok=True)
+
+    if 'Downloading GRCm38 genome fasta file' not in file_text:
+        download_gtf_GRCm38(DICT_DBS['genome_fasta_GRCm38'][0], file_text)
+    
+    if 'Downloading GRCm38 gene gtf file' not in file_text:
+            download_gtf_GRCm38(path_db.replace('.bed', '.gtf'), file_text)
+
+    cmd_cellranger_index_GRCm38 = f""" docker run -it --rm -v $(pwd)/database/:/database \\\n\
+        {DICT_CONTAINERS['cellranger']} \\\n\
+        sh -c "\\\n\
+            cellranger mkref \\\n\
+            --genome  {filename} \\\n\
+            --fasta /{DICT_DBS['genome_fasta_GRCm38'][0]} \\\n\
+            --genes /{DICT_DBS['gtf_GRCm38'][0]} \\\n\
+            --nthreads={MAX_CPU}\n\
+            mv /cellranger /{path}
+    "\n\n\n"""
+
+    return title + cmd_cellranger_index_GRCm38
+
+
 
 def download_universc_index_GRCm38(path_db, file_text):
-    return ""
+    subfiles_check = ['fasta/genome.fa', 'fasta/genome.fa.fai', 'genes/genes.gtf.gz', 'reference.json'] + \
+                     [f'star/{file}' for file in ['chrLength.txt', 'chrNameLength.txt', 'chrName.txt', 'chrStart.txt', 'exonGeTrInfo.tab', 
+                                                  'exonInfo.tab', 'geneInfo.tab', 'Genome', 'genomeParameters.txt', 'SA', 'SAindex',  'sjdbInfo.txt', 
+                                                  'sjdbList.fromGTF.out.tab', 'sjdbList.out.tab', 'transcriptInfo.tab']]
+    
+    if not db_check(path_db, subfiles_check=subfiles_check, min_weight=14.5 * GB):
+        logger.info(f'Database {path_db} already exists. It will not be downloaded.')
+        return ""  # I write the code as such to avoid encapsulation.
+
+    title = """echo "### Building GRCm38 universc index file."\n\n"""
+    path, filename = os.path.split(path_db)
+    os.makedirs(path_db, exist_ok=True)
+
+    if 'Downloading GRCm38 genome fasta file' not in file_text:
+        download_gtf_GRCm38(DICT_DBS['genome_fasta_GRCm38'][0], file_text)
+    
+    if 'Downloading GRCm38 gene gtf file' not in file_text:
+            download_gtf_GRCm38(path_db.replace('.bed', '.gtf'), file_text)
+
+    cmd_universc_index_GRCm38 = f""" docker run -it --rm -v $(pwd)/database/:/database \\\n\
+        {DICT_CONTAINERS['cellranger']} \\\n\
+        sh -c "\\\n\
+            cellranger mkref \\\n\
+            --genome  {filename} \\\n\
+            --fasta /{DICT_DBS['genome_fasta_GRCm38'][0]} \\\n\
+            --genes /{DICT_DBS['gtf_GRCm38'][0]} \\\n\
+            --nthreads={MAX_CPU}\n\
+            mv /universc /{path}
+    "\n\n\n"""
+
+    return title + cmd_universc_index_GRCm38
+
 
 def download_segemehl_index_GRCm38(path_db, file_text):
-    return ""
+    subfiles_check = ['genome.idx']
+    
+    if not db_check(path_db, subfiles_check=subfiles_check, min_weight=40 * GB):
+        logger.info(f'Database {path_db} already exists. It will not be downloaded.')
+        return ""  # I write the code as such to avoid encapsulation.
+
+    title = """echo "### Building GRCm38 segemehl index file."\n\n"""
+    os.makedirs(path_db, exist_ok=True)
+
+    if 'Downloading GRCm38 genome fasta file' not in file_text:
+        download_gtf_GRCm38(DICT_DBS['genome_fasta_GRCm38'][0], file_text)
+    
+    if 'Downloading GRCm38 gene gtf file' not in file_text:
+            download_gtf_GRCm38(path_db.replace('.bed', '.gtf'), file_text)
+
+    cmd_segemehl_index_GRCm38 = f""" docker run -it --rm -v $(pwd)/database/:/database \\\n\
+        {DICT_CONTAINERS['segemehl']} \\\n\
+        sh -c "\\\n\
+            segemehl.x \\\n\
+            -t {MAX_CPU} \\\n\
+            -d /{DICT_DBS['genome_fasta_GRCm38'][0]} \\\n\
+            -x /{path_db}/genome.idx 
+    "\n\n\n"""
+
+
+    return title + cmd_segemehl_index_GRCm38
+
+
 
 def download_aa_data_repo_index_GRCm38(path_db, file_text):
-    return ""
+    subfiles_check = []
+    
+    if not db_check(path_db, subfiles_check=subfiles_check, min_weight=8 * GB):
+        logger.info(f'Database {path_db} already exists. It will not be downloaded.')
+        return ""  # I write the code as such to avoid encapsulation.
+
+    title = """echo "### Building GRCm38 ampliconarchitect index file."\n\n"""
+    os.makedirs(path_db, exist_ok=True)
+
+    cmd_aa_repo_index_GRCm38 = f""" docker run -it --rm -v $(pwd)/database/:/database \\\n\
+        {DICT_CONTAINERS['aria2c']} \\\n\
+         -x {MAX_CPU} \\\n\
+         -d /{path_db} \\\n\
+         --file-allocation=none \\\n\
+         https://datasets.genepattern.org/data/module_support_files/AmpliconArchitect/mm10_indexed.tar.gz \n\
+         tar xzvf {path_db}/mm10_indexed.tar.gz -C {path_db}\n\
+         mv {path_db}/mm10/* {path_db} \n\
+         rm -rf {path_db}/mm10_indexed.tar.gz {path_db}/mm10
+    \n\n\n"""
+
+    return title + cmd_aa_repo_index_GRCm38
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
 
 def download_mirbase_mature(path_db, file_text):
-    return ""
+    subfiles_check = []
+    
+    if not db_check(path_db, subfiles_check=subfiles_check, min_weight=3 * MB):
+        logger.info(f'Database {path_db} already exists. It will not be downloaded.')
+        return ""  # I write the code as such to avoid encapsulation.
+
+    title = """echo "### Downloading mirbase mature file."\n\n"""
+    path, _ = os.path.split(path_db)
+    os.makedirs(path, exist_ok=True)
+
+    cmd = f"""wget https://mirbase.org/download/mature.fa -O {path_db} \n\n\n"""
+
+    return title + cmd
+
 
 def download_mirbase_hairpin(path_db, file_text):
-    return ""
+    subfiles_check = []
+    
+    if not db_check(path_db, subfiles_check=subfiles_check, min_weight=6 * MB):
+        logger.info(f'Database {path_db} already exists. It will not be downloaded.')
+        return ""  # I write the code as such to avoid encapsulation.
+
+    title = """echo "### Downloading mirbase hairpin file."\n\n"""
+    path, _ = os.path.split(path_db)
+    os.makedirs(path, exist_ok=True)
+
+    cmd = f"""wget https://mirbase.org/download/hairpin.fa -O {path_db} \n\n\n"""
+
+    return title + cmd
+
 
 def download_mirbase_gtf_GRCh38(path_db, file_text):
-    return ""
+    subfiles_check = []
+    
+    if not db_check(path_db, subfiles_check=subfiles_check, min_weight=0.3 * MB):
+        logger.info(f'Database {path_db} already exists. It will not be downloaded.')
+        return ""  # I write the code as such to avoid encapsulation.
+
+    title = """echo "### Downloading mirbase hsa.gff file."\n\n"""
+    path, _ = os.path.split(path_db)
+    os.makedirs(path, exist_ok=True)
+
+    cmd = f"""wget https://mirbase.org/download/hsa.gff3 -O {path_db} \n\n\n"""
+
+    return title + cmd
+
 
 def download_mirbase_gtf_GRCm38(path_db, file_text):
-    return ""
+    subfiles_check = []
+    
+    if not db_check(path_db, subfiles_check=subfiles_check, min_weight=0.3 * MB):
+        logger.info(f'Database {path_db} already exists. It will not be downloaded.')
+        return ""  # I write the code as such to avoid encapsulation.
+
+    title = """echo "### Downloading mirbase mmu.gff file."\n\n"""
+    path, _ = os.path.split(path_db)
+    os.makedirs(path, exist_ok=True)
+
+    cmd = f"""wget https://mirbase.org/download/mmu.gff3 -O {path_db} \n\n\n"""
+
+
+    return title + cmd
+
+
+
 
 
 def download_mirgenedb_mature(path_db, file_text):
-    return ""
+    subfiles_check = []
+    
+    if not db_check(path_db, subfiles_check=subfiles_check, min_weight=0.02 * MB): # TOO SMALL
+        logger.info(f'Database {path_db} already exists. It will not be downloaded.')
+        return ""  # I write the code as such to avoid encapsulation.
+
+    title = """echo "### Downloading mirgenedb mature file."\n\n"""
+    path, _ = os.path.split(path_db)
+    os.makedirs(path, exist_ok=True)
+
+    cmd = f"""wget https://mirgenedb.org/fasta/hsa?mat=1 -O {path_db} \n\n\n"""
+
+    return title + cmd
+
 
 def download_mirgenedb_hairpin(path_db, file_text):
-    return ""
+    subfiles_check = []
+    
+    if not db_check(path_db, subfiles_check=subfiles_check, min_weight=0.04 * MB):
+        logger.info(f'Database {path_db} already exists. It will not be downloaded.')
+        return ""  # I write the code as such to avoid encapsulation.
+
+    title = """echo "### Downloading mirgenedb hairpin file."\n\n"""
+    path, _ = os.path.split(path_db)
+    os.makedirs(path, exist_ok=True)
+
+    cmd = f"""wget https://mirgenedb.org/static/data/hsa/hsa-pre.fas -O {path_db} \n\n\n"""
+
+    return title + cmd
+
+
 
 def download_mirgenedb_gff_GRCh38(path_db, file_text):
-    return ""
+    subfiles_check = []
+    
+    if not db_check(path_db, subfiles_check=subfiles_check, min_weight=0.1 * MB):
+        logger.info(f'Database {path_db} already exists. It will not be downloaded.')
+        return ""  # I write the code as such to avoid encapsulation.
+
+    title = """echo "### Downloading mirgenedb hsa.gff file."\n\n"""
+    path, _ = os.path.split(path_db)
+    os.makedirs(path, exist_ok=True)
+
+    cmd = f"""wget https://mirgenedb.org/gff/hsa?sort=pos -O {path_db} \n\n\n"""
+
+
+    return title + cmd
+
 
 def download_mirgenedb_gff_GRCm38(path_db, file_text):
-    return ""
+    subfiles_check = []
+    
+    if not db_check(path_db, subfiles_check=subfiles_check, min_weight=0.1 * MB):
+        logger.info(f'Database {path_db} already exists. It will not be downloaded.')
+        return ""  # I write the code as such to avoid encapsulation.
+
+    title = """echo "### Downloading mirgenedb mmu.gff file."\n\n"""
+    path, _ = os.path.split(path_db)
+    os.makedirs(path, exist_ok=True)
+
+
+    cmd = f"""wget https://mirgenedb.org/gff/mmu?sort=pos -O {path_db} \n\n\n"""
+
+    return title + cmd
 
 
 
 
 
 def download_kaiju(path_db, file_text):
-    return ""
+    subfiles_check = []
+    
+    if not db_check(path_db, subfiles_check=subfiles_check, min_weight=0.1 * MB):
+        logger.info(f'Database {path_db} already exists. It will not be downloaded.')
+        return ""  # I write the code as such to avoid encapsulation.
+
+    title = """echo "### Building kaiju index files."\n\n"""
+    os.makedirs(path_db, exist_ok=True)
+
+
+    cmd_download_refseq = f"""wget -L https://kaiju-idx.s3.eu-central-1.amazonaws.com/2023/kaiju_db_refseq_2023-05-23.tgz -O {path_db}/kaiju_refseq.tgz \n\
+                    tar xzvf {path_db}/kaiju_refseq.tgz -C {path_db} \n\
+                    mv {path_db}/kaiju_db_refseq.fmi {path_db}/kaiju_refseq.fmi \n\
+    \n"""
+
+    cmd_download_fungi = f"""wget -L https://kaiju-idx.s3.eu-central-1.amazonaws.com/2023/kaiju_db_fungi_2023-05-26.tgz -O {path_db}/kaiju_fungi.tgz \n\
+                    tar xzvf {path_db}/kaiju_fungi.tgz -C {path_db} \n\
+                    mv {path_db}/kaiju_db_fungi.fmi {path_db}/kaiju_fungi.fmi \n\
+    \n"""
+
+    cmd_download_plasmids = f"""wget -L https://kaiju-idx.s3.eu-central-1.amazonaws.com/2023/kaiju_db_plasmids_2023-05-26.tgz -O {path_db}/kaiju_plasmids.tgz \n\
+                    tar xzvf {path_db}/kaiju_plasmids.tgz -C {path_db} \n\
+                    mv {path_db}/kaiju_db_plasmids.fmi {path_db}/kaiju_plasmids.fmi \n\
+    \n"""
+
+
+    cmd_download_human = f"""docker run -it --rm -v $(pwd)/database/:/database \\\n\
+            {DICT_CONTAINERS['ncbi-genome-download']} \\\n\
+            sh -c "
+            -F protein-fasta -p {MAX_CPU} -r 10 -P vertebrate_mammalian -t "9606" -R reference \\\n\
+            -o {path_db} \n\
+            zcat $(find {path_db}/refseq -type f -name '*.faa.gz') | sed 's/^>.*$/>9606/' > {path_db}/combined.faa \n\
+    "\n"""
+
+    cmd_make_human = f"""docker run -it --rm -v $(pwd)/database/:/database \\\n\
+            {DICT_CONTAINERS['kaiju']} \\\n\
+            sh -c " \\\n\
+            kaiju-mkbwt -n {MAX_CPU} -a ACDEFGHIKLMNPQRSTVWY -infilename {path_db}/combined.faa -o {path_db}/kaiju_human
+            kaiju-mkfmi {path_db}/kaiju_human
+    "\n\n\n"""
+
+
+    return title + cmd_download_refseq + cmd_download_fungi + cmd_download_plasmids + cmd_download_human + cmd_make_human
+
+
 
 def download_centrifuge(path_db, file_text):
     return ""
@@ -470,13 +1512,13 @@ def db_check(path_check, subfiles_check=[], min_weight=0):
     else:
         if len(subfiles_check) > 0:
             for file in subfiles_check:
-                if not os.path.isfile(f"{path_check}/{file}"):
+                if not os.path.exists(f"{path_check}/{file}"):
                     logger.info(f">>> File {file} within path {path_check} does not exist. Database will be downloaded.")
                     return True
 
     # Check dir/file size
     if len(subfiles_check) > 0: # is a directory
-        weight = sum(os.path.getsize(f) for f in os.listdir(path_check) if os.path.isfile(f))
+        weight = sum([os.path.getsize(f"{path_check}/{f}") for f in subfiles_check if os.path.exists(f"{path_check}/{f}")])
     else:
         weight = os.path.getsize(path_check)
     
@@ -495,7 +1537,7 @@ def write_database_file(text, project):
 ################################################################################################
 # VARIABLES
 ################################################################################################
-DICT_DBS = {'fasta_GRCh38': ('database/genomes/GRCh38/genome.fasta', download_fasta_GRCh38), 
+DICT_DBS = {'genome_fasta_GRCh38': ('database/genomes/GRCh38/genome.fasta', download_fasta_GRCh38), 
             'transcript_fasta_GRCh38': ('database/genomes/GRCh38/transcript.fasta', download_transcript_fasta_GRCh38), 
             'gtf_GRCh38': ('database/genomes/GRCh38/genes.gtf', download_gtf_GRCh38), 
             'bed_GRCh38': ('database/genomes/GRCh38/genes.bed', download_bed_GRCh38), 
@@ -503,20 +1545,18 @@ DICT_DBS = {'fasta_GRCh38': ('database/genomes/GRCh38/genome.fasta', download_fa
             'bowtie_index_GRCh38': ('database/indexes/GRCh38/BOWTIE', download_bowtie_index_GRCh38),
             'bowtie2_index_GRCh38': ('database/indexes/GRCh38/BOWTIE2', download_bowtie2_index_GRCh38), 
             'bwa_index_GRCh38': ('database/indexes/GRCh38/BWA', download_bwa_index_GRCh38), 
-            'hisat_index_GRCh38': ('database/indexes/GRCh38/HISAT', download_hisat_index_GRCh38), 
             'hisat2_index_GRCh38': ('database/indexes/GRCh38/HISAT2', download_hisat2_index_GRCh38), 
             'salmon_index_GRCh38': ('database/indexes/GRCh38/SALMON', download_salmon_index_GRCh38), 
             'txp2gene_GRCh38': ('database/indexes/GRCh38/SALMON/txp2gene', download_txp2gene_GRCh38),
             'rsem_index_GRCh38': ('database/indexes/GRCh38/rsem', download_rsem_index_GRCh38), 
-            'kallisto_index_GRCh38': ('database/indexes/GRCh38/KALLISTO', download_kallisto_index_GRCh38), 
-            'kallisto_gene_map_GRCh38': ('database/indexes/GRCh38/KALLISTO/gene_map', download_kallisto_gene_map_GRCh38), 
+            'kallisto_index_GRCh38': ('database/indexes/GRCh38/KALLISTO/index', download_kallisto_index_GRCh38), 
             'cellranger_index_GRCh38': ('database/indexes/GRCh38/cellranger', download_cellranger_index_GRCh38),
-            'universc_index_GRCh38': ('database/indexes/GRCh38/UNIVERSC', download_universc_index_GRCh38), 
+            'universc_index_GRCh38': ('database/indexes/GRCh38/universc', download_universc_index_GRCh38), 
             'segemehl_index_GRCh38': ('database/indexes/GRCh38/segemehl', download_segemehl_index_GRCh38), 
             'aa_data_repo_index_GRCh38': ('database/indexes/GRCh38/aa_data_repo', download_aa_data_repo_index_GRCh38),
-            'fasta_CHM13': ('database/genomes/CHM13/genome.fasta', download_fasta_CHM13),
+            'genome_fasta_CHM13': ('database/genomes/CHM13/genome.fasta', download_fasta_CHM13),
             'bowtie2_index_CHM13': ('database/indexes/CHM13/BOWTIE2', download_bowtie2_index_CHM13),
-            'fasta_GRCm38': ('database/genomes/GRCm38/genome.fasta', download_fasta_GRCm38), 
+            'genome_fasta_GRCm38': ('database/genomes/GRCm38/genome.fasta', download_fasta_GRCm38), 
             'transcript_fasta_GRCm38': ('database/genomes/GRCm38/transcript.fasta', download_transcript_fasta_GRCm38),
             'gtf_GRCm38': ('database/genomes/GRCm38/genes.gtf', download_gtf_GRCm38), 
             'bed_GRCm38': ('database/genomes/GRCm38/genes.bed', download_bed_GRCm38), 
@@ -524,29 +1564,23 @@ DICT_DBS = {'fasta_GRCh38': ('database/genomes/GRCh38/genome.fasta', download_fa
             'bowtie_index_GRCm38': ('database/indexes/GRCm38/BOWTIE', download_bowtie_index_GRCm38),
             'bowtie2_index_GRCm38': ('database/indexes/GRCm38/BOWTIE2', download_bowtie2_index_GRCm38), 
             'bwa_index_GRCm38': ('database/indexes/GRCm38/BWA', download_bwa_index_GRCm38), 
-            'hisat_index_GRCm38': ('database/indexes/GRCm38/HISAT', download_hisat_index_GRCm38), 
             'hisat2_index_GRCm38': ('database/indexes/GRCm38/HISAT2', download_hisat2_index_GRCm38), 
             'salmon_index_GRCm38': ('database/indexes/GRCm38/SALMON', download_salmon_index_GRCm38), 
             'txp2gene_GRCm38': ('database/indexes/GRCm38/SALMON/txp2gene', download_txp2gene_GRCm38),
             'rsem_index_GRCm38': ('database/indexes/GRCm38/rsem', download_rsem_index_GRCm38), 
-            'kallisto_index_GRCm38': ('database/indexes/GRCm38/KALLISTO', download_kallisto_index_GRCm38),
-            'kallisto_gene_map_GRCm38': ('database/indexes/GRCm38/KALLISTO/gene_map', download_kallisto_gene_map_GRCm38),  
+            'kallisto_index_GRCm38': ('database/indexes/GRCm38/KALLISTO/index', download_kallisto_index_GRCm38),
             'cellranger_index_GRCm38': ('database/indexes/GRCm38/cellranger', download_cellranger_index_GRCm38), 
-            'universc_index_GRCm38': ('database/indexes/GRCm38/UNIVERSC', download_universc_index_GRCm38), 
+            'universc_index_GRCm38': ('database/indexes/GRCm38/universc', download_universc_index_GRCm38), 
             'segemehl_index_GRCm38': ('database/indexes/GRCm38/segemehl', download_segemehl_index_GRCm38), 
             'aa_data_repo_index_GRCm38': ('database/indexes/GRCm38/aa_data_repo', download_aa_data_repo_index_GRCm38), 
-            'mirbase_gtf_GRCh38': ('database/smRNA/mirbase/GRCh38.gtf', download_mirbase_gtf_GRCh38),
-            'mirbase_gtf_GRCm38': ('database/smRNA/mirbase/GRCm38.gtf', download_mirbase_gtf_GRCm38),
-            'mirgenedb_gff_GRCh38': ('database/smRNA/mirgenedb/GRCh38.gff', download_mirgenedb_gff_GRCh38),
-            'mirgenedb_gff_GRCm38': ('database/smRNA/mirgenedb/GRCm38.gff', download_mirgenedb_gff_GRCm38),
-            'mirbase_mature': ('database/smRNA/mirbase/mature.gff', download_mirbase_mature),
-            'mirbase_hairpin': ('database/smRNA/mirbase/hairpin.gff', download_mirbase_hairpin),
-            'mirgenedb_mature': ('database/smRNA/mirgenedb/mature.gff', download_mirgenedb_mature),
-            'mirgenedb_hairpin': ('database/smRNA/mirgenedb/hairpin.gff', download_mirgenedb_hairpin),
-            'mature': ('database/mirbase/mature.fa', download_mirbase_mature),
-            'hairpin': ('database/mirbase/hairpin.fa', download_mirbase_hairpin),
-            'mirna_gtf_GRCh38': ('database/GRCh38.gtf', download_mirbase_gtf_GRCh38),
-            'mirna_gtf_GRCm38': ('database/GRCm38.gtf', download_mirbase_gtf_GRCm38), 
+            'mirbase_gff_GRCh38': ('database/smRNA/mirbase/hsa.gff3', download_mirbase_gtf_GRCh38),
+            'mirbase_gff_GRCm38': ('database/smRNA/mirbase/mmu.gff3', download_mirbase_gtf_GRCm38),
+            'mirgenedb_gff_GRCh38': ('database/smRNA/mirgenedb/hsa.gff', download_mirgenedb_gff_GRCh38),
+            'mirgenedb_gff_GRCm38': ('database/smRNA/mirgenedb/mmu.gff', download_mirgenedb_gff_GRCm38),
+            'mirbase_mature': ('database/smRNA/mirbase/mature.fa', download_mirbase_mature),
+            'mirbase_hairpin': ('database/smRNA/mirbase/hairpin.fa', download_mirbase_hairpin),
+            'mirgenedb_mature': ('database/smRNA/mirgenedb/hsa.fas', download_mirgenedb_mature),
+            'mirgenedb_hairpin': ('database/smRNA/mirgenedb/hsa-pre.fas', download_mirgenedb_hairpin),
             'kaiju': ('database/taxprofiler/kaiju', download_kaiju), 
             'centrifuge': ('database/taxprofiler/centrifuge', download_centrifuge), 
             'kraken2': ('database/taxprofiler/kraken2', download_kraken2), 

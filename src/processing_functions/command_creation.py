@@ -205,7 +205,7 @@ def run_map_1(genome, project, pipeline, process_name, yaml_dict):
     --input {samplesheet_in} \\\n\
     --outdir results/{project}/{pipeline}/1st_map \\\n\
     --aligner star_salmon \\\n\
-    --fasta {DICT_DBS[f'fasta_{genome}'][0]}\\\n\
+    --fasta {DICT_DBS[f'genome_fasta_{genome}'][0]}\\\n\
     --gtf {DICT_DBS[f'gtf_{genome}'][0]} \\\n\
     --star_index {DICT_DBS[f'star_index_{genome}'][0]}\\\n\
     --rsem_index {DICT_DBS[f'rsem_index_{genome}'][0]} \\\n\
