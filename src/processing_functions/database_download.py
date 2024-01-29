@@ -1252,8 +1252,13 @@ def download_segemehl_index_GRCm38(path_db, file_text):
 
 
 def download_aa_data_repo_index_GRCm38(path_db, file_text):
-    subfiles_check = []
-    
+    subfiles_check = ['annotations/mm10GenomicSuperDup.tab', 'cancer/oncogene_list.txt', 
+                      'dummy_ploidy.vcf', 'file_list.txt', 'file_sources.txt', 'last_updated.txt', 'mm10-blacklist.v2.bed', 
+                      'mm10_cnvkit_filtered_ref.cnn', 'mm10_conserved_gain5_onco_subtract.bed', 'mm10.fa.amb', 'mm10.fa.bwt', 
+                      'mm10.fa.pac', 'mm10.Hardison.Excludable.full.bed', 'mm10_merged_centromeres_conserved_sorted.bed', 'onco_bed.bed', 
+                      'mm10_centromere.bed', 'mm10_conserved_gain5.bed', 'mm10.fa', 'mm10.fa.ann', 'mm10.fa.fai', 'mm10.fa.sa', 
+                      'mm10_k35.mappability.bedgraph', 'mm10_noAlt.fa.fai']
+                      
     if not db_check(path_db, subfiles_check=subfiles_check, min_weight=8 * GB):
         logger.info(f'Database {path_db} already exists. It will not be downloaded.')
         return ""  # I write the code as such to avoid encapsulation.
@@ -1431,9 +1436,9 @@ def download_mirgenedb_gff_GRCm38(path_db, file_text):
 
 
 def download_kaiju(path_db, file_text):
-    subfiles_check = []
+    subfiles_check = [f'kaiju_{org}.fmi' for org in ['fungi', 'human', 'plasmids', 'refseq']]
     
-    if not db_check(path_db, subfiles_check=subfiles_check, min_weight=0.1 * MB):
+    if not db_check(path_db, subfiles_check=subfiles_check, min_weight=89 * GB):
         logger.info(f'Database {path_db} already exists. It will not be downloaded.')
         return ""  # I write the code as such to avoid encapsulation.
 
@@ -1459,35 +1464,147 @@ def download_kaiju(path_db, file_text):
 
     cmd_download_human = f"""docker run -it --rm -v $(pwd)/database/:/database \\\n\
             {DICT_CONTAINERS['ncbi-genome-download']} \\\n\
-            sh -c "
-            -F protein-fasta -p {MAX_CPU} -r 10 -P vertebrate_mammalian -t "9606" -R reference \\\n\
+            sh -c " \\\n\
+            ncbi-genome-download -F protein-fasta -p {MAX_CPU} -r 10 -P vertebrate_mammalian -t "9606" -R reference \\\n\
             -o {path_db} \n\
-            zcat $(find {path_db}/refseq -type f -name '*.faa.gz') | sed 's/^>.*$/>9606/' > {path_db}/combined.faa \n\
+            
+            zcat {path_db}/refseq/vertebrate_mammalian/GCF_000001405.40/GCF_000001405.40_GRCh38.p14_protein.faa.gz | \
+                sed 's/^>.*$/>9606/' > {path_db}/human.faa \n\
     "\n"""
 
     cmd_make_human = f"""docker run -it --rm -v $(pwd)/database/:/database \\\n\
             {DICT_CONTAINERS['kaiju']} \\\n\
             sh -c " \\\n\
-            kaiju-mkbwt -n {MAX_CPU} -a ACDEFGHIKLMNPQRSTVWY -infilename {path_db}/combined.faa -o {path_db}/kaiju_human
+            kaiju-mkbwt -n {MAX_CPU} -a ACDEFGHIKLMNPQRSTVWY -infilename {path_db}/human.faa -o {path_db}/kaiju_human
             kaiju-mkfmi {path_db}/kaiju_human
-    "\n\n\n"""
+    "\n"""
 
+    cmd_rm = f"""rm -rf {path_db}/*.tgz {path_db}/refseq {path_db}/*.bwt {path_db}/*.sa  {path_db}/*.faa  \n\n\n"""
 
-    return title + cmd_download_refseq + cmd_download_fungi + cmd_download_plasmids + cmd_download_human + cmd_make_human
+    return title + cmd_download_refseq + cmd_download_fungi + cmd_download_plasmids + cmd_download_human + cmd_make_human + cmd_rm
 
 
 
 def download_centrifuge(path_db, file_text):
-    return ""
+    subfiles_check = [f'f+p.{N}.cf' for N in range (1,5)] + [f'nt.{N}.cf' for N in range (1,5)] + [f'p+h+v.{N}.cf' for N in range (1,4)]
+    
+    if not db_check(path_db, subfiles_check=subfiles_check, min_weight=130 * GB):
+        logger.info(f'Database {path_db} already exists. It will not be downloaded.')
+        return ""  # I write the code as such to avoid encapsulation.
+
+    title = """echo "### Building centrifuge index files."\n\n"""
+    os.makedirs(path_db, exist_ok=True)
+
+
+    cmd_download_centrifuge_1 = f"""docker run -it --rm -v $(pwd)/database/:/database \
+                {DICT_CONTAINERS['aws-cli']} \\\n\
+                s3 --no-sign-request --region eu-west-1  \\\n\
+                cp s3://genome-idx/centrifuge/nt_2018_3_3.tar.gz \\\n\
+                /{path_db}/nt_2018_3_3.tar.gz \n\
+                tar xvf {path_db}/nt_2018_3_3.tar.gz -C {path_db}
+    \n"""
+
+    cmd_download_centrifuge_2 = f"""docker run -it --rm -v $(pwd)/database/:/database \
+                {DICT_CONTAINERS['aws-cli']} \\\n\
+                s3 --no-sign-request --region eu-west-1  \\\n\
+                cp s3://genome-idx/centrifuge/p+h+v.tar.gz \\\n\
+                /{path_db}/p+h+v.tar.gz \n\
+                tar xvf {path_db}/p+h+v.tar.gz -C {path_db}
+    \n"""
+
+    # I CANT RUN DIRECTLY CENTRIFUGE FROM DOCKER BECUASE IT NEEDS DUSTMASKER 
+    # TODO: CREATE A CENTRIFUGE + DUSTMASKER 
+    cmd_build_fungi_protozoa = f"""centrifuge-download -o {path_db}/taxonomy taxonomy \n\
+            centrifuge-download -o {path_db}/library -P {MAX_CPU} -m -d "fungi,protozoa" -a Any refseq > {path_db}/seqid2taxid.map \n\
+            cat {path_db}/library/*/*.fna > {path_db}/input-sequences.fna \n\
+            centrifuge-build -p {MAX_CPU} --conversion-table {path_db}/seqid2taxid.map \\\n\
+                 --taxonomy-tree {path_db}/taxonomy/nodes.dmp --name-table {path_db}/taxonomy/names.dmp \\\n\
+                 {path_db}/input-sequences.fna {path_db}/f+p
+    \n"""
+
+    cmd_rm = f"""rm -rf {path_db}/*.tar.gz {path_db}/taxonomy {path_db}/library {path_db}/*.map {path_db}/*.fna\n\n\n"""
+
+    return title + cmd_download_centrifuge_1 + cmd_download_centrifuge_2 + cmd_build_fungi_protozoa + cmd_rm
+
+
+
+
 
 def download_kraken2(path_db, file_text):
-    return ""
+    subfiles_check = ['hash.k2d', 'inspect.txt', 'kraken_2_db_inspect.txt', 'ktaxonomy.tsv', 'opts.k2d', 'seqid2taxid.map', 'taxo.k2d'] + \
+                     [f'database{N}mers.kmer_distrib' for N in [50, 75, 100, 150, 200, 250, 300]]
+    
+    if not db_check(path_db, subfiles_check=subfiles_check, min_weight=70 * GB):
+        logger.info(f'Database {path_db} already exists. It will not be downloaded.')
+        return ""  # I write the code as such to avoid encapsulation.
+
+    title = """echo "### Building kraken2 index files."\n\n"""
+    os.makedirs(path_db, exist_ok=True)
+
+
+    cmd_download_kraken2 = f"""wget -L https://genome-idx.s3.amazonaws.com/kraken/k2_pluspf_20230314.tar.gz \
+                                -O {path_db}/kraken_2_db.tar.gz \n\
+                    wget -L https://genome-idx.s3.amazonaws.com/kraken/pluspf_20230314/inspect.txt \
+                                -O {path_db}/kraken_2_db_inspect.txt \n\
+                    tar xzvf {path_db}/kraken_2_db.tar.gz -C {path_db} \n\
+    \n"""
+
+
+    cmd_rm = f"""rm -rf {path_db}/*.tar.gz \n\n\n"""
+
+    return title + cmd_download_kraken2 + cmd_rm
+
 
 def download_krakenuniq(path_db, file_text):
-    return ""
+    subfiles_check = [f'database.{suff}' for suff in ['idx', 'kdb', 'kdb.counts']] + ['seqid2taxid.map', 'taxDB'] + \
+                     [f'database{N}mers.kmer_distrib' for N in [50, 75, 100, 150, 200, 250, 300]]
+
+    
+    if not db_check(path_db, subfiles_check=subfiles_check, min_weight=400 * GB):
+        logger.info(f'Database {path_db} already exists. It will not be downloaded.')
+        return ""  # I write the code as such to avoid encapsulation.
+
+    title = """echo "### Building krakenuniq index files."\n\n"""
+    os.makedirs(path_db, exist_ok=True)
+
+    cmd_download_krakenuniq_1 = f"""docker run -it --rm -v $(pwd)/database/:/database \
+                {DICT_CONTAINERS['aws-cli']} \\\n\
+                s3 --no-sign-request --region eu-west-1  \\\n\
+                cp s3://genome-idx/kraken/uniq/krakendb-2022-06-16-STANDARD/kuniq_standard_minus_kdb.20220616.tgz \\\n\
+                /{path_db}/kuniq_standard_minus_kdb.20220616.tgz \n\
+                tar xvf {path_db}/kuniq_standard_minus_kdb.20220616.tgz -C {path_db}
+    \n"""
+
+    cmd_download_krakenuniq_2 = f"""docker run -it --rm -v $(pwd)/database/:/database \
+                {DICT_CONTAINERS['aws-cli']} \\\n\
+                s3 --no-sign-request --region eu-west-1  \\\n\
+                cp s3://genome-idx/kraken/uniq/krakendb-2022-06-16-STANDARD/database.kdb \\\n\
+                /{path_db}/database.kdb
+    \n"""
+
+    cmd_rm = f"""rm -rf {path_db}/*.tgz \n\n\n"""
+
+    return title + cmd_download_krakenuniq_1 + cmd_download_krakenuniq_2 + cmd_rm
+
 
 def download_taxpasta(path_db, file_text):
-    return ""
+    subfiles_check = []
+    
+    if not db_check(path_db, subfiles_check=subfiles_check, min_weight=0.1 * MB):
+        logger.info(f'Database {path_db} already exists. It will not be downloaded.')
+        return ""  # I write the code as such to avoid encapsulation.
+
+    title = """echo "### Downloading taxpasta files."\n\n"""
+    path, _ = os.path.split(path_db)
+    os.makedirs(path, exist_ok=True)
+
+
+    cmd = f"""wget ftp.ncbi.nih.gov/pub/taxonomy/taxdump.tar.gz -O /{path_db}/taxdump.tar.gz \n\
+              tar xvf /{path_db}/taxpasta/taxdump.tar.gz -C /{path_db}/taxpasta/  \n\
+              rm  /{path_db}/taxpasta/*.tar.gz \n\n\n"""
+
+    return title + cmd
+
 
 
 ################################################################################################

@@ -263,7 +263,7 @@ def run_map_2(map_1, genome, project, pipeline, process_name, yaml_dict):
     return command_run_2
 
 
-
+# TODO: outsource profiler commands using quay.io containers
 def run_kaiju(yaml_dict, process_name, pipeline, list_samples, list_fastqs_1, list_fastqs_2):
     profiler_type = 'kaiju'
     command_kaiju = f"""echo -e "{'^' * 50}\nPROCESS:  {process_name} | KAIJU \n{'^' * 50}\n"  \n\n"""

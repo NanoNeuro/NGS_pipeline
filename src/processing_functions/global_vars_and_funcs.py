@@ -86,4 +86,8 @@ DICT_CONTAINERS = {'ncbi-datasets': 'biocontainers/ncbi-datasets-cli:15.12.0_cv2
                    'rsem-star': 'quay.io/biocontainers/mulled-v2-cf0123ef83b3c38c13e3b0696a3f285d3f20f15b:64aad4a4e144878400649e71f42105311be7ed87-0',
                    'cellranger': 'quay.io/nf-core/cellranger:7.1.0', 
                    'segemehl': 'quay.io/biocontainers/segemehl:0.3.4--hfe57441_9', 
-                   'kaiju': 'quay.io/biocontainers/kaiju:1.10.0--h43eeafb_0'}
+                   'kaiju': 'quay.io/biocontainers/kaiju:1.10.0--h43eeafb_0', 
+                   'centrifuge': 'quay.io/biocontainers/centrifuge:1.0.4--hd03093a_0', 
+                   'kraken2': 'quay.io/biocontainers/kraken2:2.1.3--pl5321hdcf5f25_0', 
+                   'krakenuniq': 'quay.io/biocontainers/krakenuniq:1.0.4--pl5321h6dccd9a_1', 
+                   'taxpasta': 'quay.io/biocontainers/taxpasta:0.6.1--pyhdfd78af_0'}
