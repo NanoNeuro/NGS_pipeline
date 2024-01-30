@@ -61,7 +61,7 @@ def parse_yaml_file(yaml_path, project, samplesheet):
 
 
     # With the ordered dictionary, we are first going  to check and fill the general information
-    parse_nfcore_config(yaml_dict)
+    parse_nfcore_config(yaml_dict, project)
 
 
     # There are specific arguments that should be checked for taxprofiler, so we are going to process them separately
@@ -161,7 +161,7 @@ def parse_general_config(yaml_dict, project):
 
 
 
-def parse_nfcore_config(yaml_dict):
+def parse_nfcore_config(yaml_dict, project):
     """
     Check and fill arguments including:
     - r version on nf-core dependent processes
@@ -195,7 +195,7 @@ def parse_nfcore_config(yaml_dict):
                     yaml_dict[process_name]['nfcore_config'][element] = False
             
             if yaml_dict[process_name]['nfcore_config']['outdir'] == False:
-                yaml_dict[process_name]['nfcore_config']['outdir'] = f"results/{pipeline}/{process_name}"
+                yaml_dict[process_name]['nfcore_config']['outdir'] = f"results/{project}/{process_name}"
 
 
             
@@ -336,6 +336,10 @@ def parse_database_arguments(yaml_dict, list_dbs_to_download):
                     elif (not is_aligner) & (is_pseudoaligner):
                         aligner = False
                         pseudoaligner = yaml_dict[process_name]['nfcore_config']['pseudo_aligner']
+                        
+                        skip_aligner = check_entry(yaml_dict[process_name]['nfcore_config'], 'skip_alignment')
+                        if not skip_aligner:
+                            yaml_dict[process_name]['nfcore_config']['skip_alignment'] = True
                     else :
                         aligner = yaml_dict[process_name]['nfcore_config']['aligner']
                         pseudoaligner = yaml_dict[process_name]['nfcore_config']['pseudo_aligner']
@@ -343,7 +347,7 @@ def parse_database_arguments(yaml_dict, list_dbs_to_download):
                     fillable_args += ['genome_fasta', 'gtf', 'gene_bed']
 
                     match aligner:
-                        # TODO: checkear si en configs sin salmon hace falta el indice de salmon para el paso de infer_strandness
+                        # TODO: checkear si en configs sin salmon hace falta el indice de salmon para el paso de infer_strandness                       
                         case 'star_salmon':
                             fillable_args += ['star_index', 'salmon_index']
                         case 'star_rsem':

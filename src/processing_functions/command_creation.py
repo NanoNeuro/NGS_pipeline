@@ -95,9 +95,9 @@ echo "
                                             -r {process_dict['nextflow_config']['r']} \\\n\
                                             -profile {process_dict['nextflow_config']['profile']} \\\n\
                                             {'-resume' if process_dict['nextflow_config']['resume'] else ''} \\\n\
-                                            --maxcpus {process_dict['general_config']['max_cpus']} \\\n\
-                                            --max_memory {process_dict['general_config']['max_memory']} \\\n\
-                                            --max_time {process_dict['general_config']['max_time']} \\\n"
+                                            --max_cpus {process_dict['general_config']['max_cpus']} \\\n\
+                                            --max_memory {process_dict['general_config']['max_memory']}.GB \\\n\
+                                            --max_time {process_dict['general_config']['max_time']}.h \\\n"
             
             for key, val in process_dict['nfcore_config'].items():
                 command_process += process_arg_keys(key, val)
@@ -171,7 +171,8 @@ echo "
                         command_process += command_centrifuge
             
             
-            run_taxpasta(yaml_dict, list_profilers, process_name, pipeline, list_samples)            
+            command_taxpasta = run_taxpasta(yaml_dict, list_profilers, process_name, pipeline, list_samples)     
+            command_process += command_taxpasta       
 
         # WRITE COMMAND
         if '\\' in command_process[: -3]: # To remove the last "\" in the command
@@ -218,8 +219,8 @@ def run_map_1(genome, project, pipeline, process_name, yaml_dict):
         val_strip = val.strip().strip("'").strip('"').strip()
         command_run_1 += f'"{val_strip}"'
 
-    command_run_1 += f"--max_cpus {MAX_CPU} --max_memory {MAX_RAM} \\\n\
-                       --max_time {MAX_TIME} \n\n"
+    command_run_1 += f"--max_cpus {MAX_CPU} --max_memory {MAX_RAM}.GB \\\n\
+                       --max_time {MAX_TIME}.h \n\n"
     
     return command_run_1
 
@@ -551,6 +552,14 @@ def process_arg_keys(key, val, config_arg="--"):
     # FOR TAXPROFILER 1st AND 2nd MAPS!
     elif val in ['1st_map_extra_args', '2nd_map_extra_args']:
         return f"""{val.strip().strip("'").strip('"').strip()} \\\n"""
+    elif key == 'genome_fasta':
+        return f"{config_arg}fasta {val} \\\n"
+    elif 'mirbase_' in key:
+        if key == 'mirbase_gff':
+            return f"{config_arg}mirna_gtf {val} \\\n"
+        else:
+            return f"{config_arg}{key.replace('mirbase_', '')} {val} \\\n"
+    
     # For the rest of arguments
     else:
         if 'extra_' in key:

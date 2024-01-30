@@ -878,7 +878,8 @@ def download_star_index_GRCm38(path_db, file_text):
     # For GRCm38, it gives 14
 
     cmd_STAR_build = f""" docker run -it --rm -v $(pwd)/database:/database \\\n\
-        {DICT_CONTAINERS['rsem-star']} \\\n\
+        --cpu-shares 16384 --memory {MAX_RAM}g \\\n\
+        {DICT_CONTAINERS['STAR']} \\\n\
         sh -c " \\\n\
             STAR  \\\n\
             --runMode genomeGenerate \\\n\
