@@ -100,7 +100,7 @@ echo "
                                             --max_time {process_dict['general_config']['max_time']}.h \\\n"
             
             for key, val in process_dict['nfcore_config'].items():
-                command_process += process_arg_keys(key, val)
+                command_process += process_arg_keys(key, val, pipeline)
 
         elif pipeline == 'taxprofiler':
             # 1st and 2nd mappings
@@ -544,7 +544,7 @@ def write_file(text, project):
         file_out.write(text)
 
 
-def process_arg_keys(key, val, config_arg="--"):
+def process_arg_keys(key, val, pipeline, config_arg="--"):
     if val == True:
         return f"{config_arg}{key} \\\n"
     elif val == False:
@@ -554,6 +554,14 @@ def process_arg_keys(key, val, config_arg="--"):
         return f"""{val.strip().strip("'").strip('"').strip()} \\\n"""
     elif key == 'genome_fasta':
         return f"{config_arg}fasta {val} \\\n"
+    elif (pipeline == 'circdna') & (key == 'bwa_index'):  # In circna is --bwa and path to dir, and in circdna is --bwa_index and path to .bwt file
+        return f"{config_arg}{key} {val}/genome.bwt \\\n"
+    elif (pipeline == 'circdna') & (key == 'reference_build') & (val == 'GRCm38'):
+        return f"{config_arg}{key} mm10 \\\n"
+    elif 'aa_data_repo' in key: # The path has to be absolute https://github.com/nf-core/circdna/issues/69
+        return f"{config_arg}{key} $(pwd)/{val} \\\n"
+    elif 'gtf_corrected'in key: 
+        return f"{config_arg}gtf {val} \\\n"
     elif 'mirbase_' in key:
         if key == 'mirbase_gff':
             return f"{config_arg}mirna_gtf {val} \\\n"

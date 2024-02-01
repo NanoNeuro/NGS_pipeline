@@ -167,6 +167,30 @@ def download_gtf_GRCh38(path_db, file_text):
 
 
 
+def download_gtf_corrected_GRCh38(path_db, file_text):
+    if not db_check(path_db, subfiles_check=[], min_weight=500 * MB):
+        logger.info(f'Database {path_db} already exists. It will not be downloaded.')
+        return ""  # I write the code as such to avoid encapsulation.
+
+        
+    path, filename = os.path.split(path_db)
+    os.makedirs(path, exist_ok=True)
+
+    if 'Downloading GRCh38 gene gtf file' not in file_text:
+        download_gtf_GRCh38(DICT_DBS['gtf_GRCh38'][0], file_text)
+
+    title = """echo "### Applying correction to GRCh38 gtf file."\n\n"""
+
+    cmd_gtf = f""" python src/others/generate_correct_gtf.py \\\n\
+        --input {path_db.replace('_corrected', '')}  \\\n\
+        --output {path_db}
+    \n\n\n"""
+
+
+    return title + cmd_gtf
+
+
+
 def download_bed_GRCh38(path_db, file_text):
     if not db_check(path_db, subfiles_check=[], min_weight=500 * MB):
         logger.info(f'Database {path_db} already exists. It will not be downloaded.')
@@ -181,13 +205,20 @@ def download_bed_GRCh38(path_db, file_text):
     if 'Downloading GRCh38 gene gtf file' not in file_text:
         download_gtf_GRCh38(path_db.replace('.bed', '.gtf'), file_text)
 
-    cmd_gtf_to_bed = f""" docker run -it --rm -v $(pwd)/{path}/:/database \\\n\
-        {DICT_CONTAINERS['bedops']} \\\n\
+    cmd_curl = f""" docker run -it --rm -v $(pwd)/{path}/:/database \\\n\
+        {DICT_CONTAINERS['curl']} \\\n\
         sh -c "\\\n\
-            gff2bed < /database/{filename.replace('bed', 'gff')} > /database/{filename}\\\n\
+           curl https://raw.githubusercontent.com/nf-core/rnaseq/3.14.0/bin/gtf2bed > /database/gtf2bed \n
     "\n\n\n"""
 
-    return title + cmd_gtf_to_bed
+    cmd_gtf_to_bed = f""" docker run -it --rm -v $(pwd)/{path}/:/database \\\n\
+        {DICT_CONTAINERS['perl']} \\\n\
+        sh -c "\\\n\
+           perl /database/gtf2bed /database/{filename.replace('bed', 'gtf')} > /database/{filename}\n\
+           rm /database/gtf2bed
+    "\n\n\n"""
+
+    return title + cmd_curl + cmd_gtf_to_bed
 
 
 # BUG: FALLA HACER EL GENOME GENERATE!!!!
@@ -487,7 +518,6 @@ def download_kallisto_index_GRCh38(path_db, file_text):
         {DICT_CONTAINERS['kallisto']} \\\n\
         sh -c "\\\n\
             kallisto index -i {filename} \\\n\
-            -t {MAX_CPU} \\\n\
             /{DICT_DBS['transcript_fasta_GRCh38'][0]} && mv {filename} /{path}/{filename}
     "\n\n\n"""
 
@@ -595,12 +625,12 @@ def download_segemehl_index_GRCh38(path_db, file_text):
 
 
 def download_aa_data_repo_index_GRCh38(path_db, file_text):
-    subfiles_check = ['annotations/hg38GenomicSuperDup.tab', 'cancer/oncogene_list_hg38.txt', 'cancer/oncogene_list.txt', 
+    subfiles_check = ['GRCh38/' + i for i in ['annotations/hg38GenomicSuperDup.tab', 'cancer/oncogene_list_hg38.txt', 'cancer/oncogene_list.txt', 
                       'dummy_ploidy.vcf', 'GCA_000001405.15_GRCh38_no_alt_analysis_set.fa', 
                       'GCA_000001405.15_GRCh38_no_alt_analysis_set.fa.fai', 'GRCh38_centromere.bed', 'hg38full_k35_noMM.mappability.bedgraph',
                       'exclude.cnvnator_100bp.GRCh38.20170403.bed', 'GCA_000001405.15_GRCh38_no_alt_analysis_set.fa.amb', 'GCA_000001405.15_GRCh38_no_alt_analysis_set.fa.pac', 'GRCh38_cnvkit_filtered_ref.cnn', 'last_updated.txt', 
                       'chrom_list.txt', 'file_list.txt', 'GCA_000001405.15_GRCh38_no_alt_analysis_set.fa.ann', 'GCA_000001405.15_GRCh38_no_alt_analysis_set.fa.sa', 'GRCh38_merged_centromeres_conserved_sorted.bed', 'refGene.txt', 
-                      'conserved_gain5_hg38.bed', 'file_sources.txt', 'GCA_000001405.15_GRCh38_no_alt_analysis_set.fa.bwt', 'Genes_hg38.gff', 'GRCh38_noAlt.fa.fai']
+                      'conserved_gain5_hg38.bed', 'file_sources.txt', 'GCA_000001405.15_GRCh38_no_alt_analysis_set.fa.bwt', 'Genes_hg38.gff', 'GRCh38_noAlt.fa.fai']]
     
     if not db_check(path_db, subfiles_check=subfiles_check, min_weight=9 * GB):
         logger.info(f'Database {path_db} already exists. It will not be downloaded.')
@@ -616,8 +646,7 @@ def download_aa_data_repo_index_GRCh38(path_db, file_text):
          --file-allocation=none \\\n\
          https://datasets.genepattern.org/data/module_support_files/AmpliconArchitect/GRCh38_indexed.tar.gz \n\
          tar xzvf {path_db}/GRCh38_indexed.tar.gz -C {path_db}\n\
-         mv {path_db}/GRCh38/* {path_db} \n\
-         rm -rf {path_db}/GRCh38_indexed.tar.gz {path_db}/GRCh38
+         rm -rf {path_db}/GRCh38_indexed.tar.gz 
     \n\n\n"""
 
     return title + cmd_aa_repo_index_GRCh38
@@ -826,6 +855,30 @@ def download_gtf_GRCm38(path_db, file_text):
 
 
 
+def download_gtf_corrected_GRCm38(path_db, file_text):
+    if not db_check(path_db, subfiles_check=[], min_weight=500 * MB):
+        logger.info(f'Database {path_db} already exists. It will not be downloaded.')
+        return ""  # I write the code as such to avoid encapsulation.
+
+        
+    path, filename = os.path.split(path_db)
+    os.makedirs(path, exist_ok=True)
+
+    if 'Downloading GRCm38 gene gtf file' not in file_text:
+        download_gtf_GRCm38(DICT_DBS['gtf_GRCm38'][0], file_text)
+
+    title = """echo "### Applying correction to GRCm38 gtf file."\n\n"""
+
+    cmd_gtf = f""" python src/others/generate_correct_gtf.py \\\n\
+        --input {path_db.replace('_corrected', '')}  \\\n\
+        --output {path_db}
+    \n\n\n"""
+
+
+    return title + cmd_gtf
+
+
+
 def download_bed_GRCm38(path_db, file_text):
     if not db_check(path_db, subfiles_check=[], min_weight=500 * MB):
         logger.info(f'Database {path_db} already exists. It will not be downloaded.')
@@ -840,13 +893,21 @@ def download_bed_GRCm38(path_db, file_text):
     if 'Downloading GRCm38 gene gtf file' not in file_text:
         download_gtf_GRCm38(path_db.replace('.bed', '.gtf'), file_text)
 
-    cmd_gtf_to_bed = f""" docker run -it --rm -v $(pwd)/{path}/:/database \\\n\
-        {DICT_CONTAINERS['bedops']} \\\n\
+
+    cmd_curl = f""" docker run -it --rm -v $(pwd)/{path}/:/database \\\n\
+        {DICT_CONTAINERS['curl']} \\\n\
         sh -c "\\\n\
-            gff2bed < /database/{filename.replace('bed', 'gff')} > /database/{filename}\\\n\
+           curl https://raw.githubusercontent.com/nf-core/rnaseq/3.14.0/bin/gtf2bed > /database/gtf2bed \n
     "\n\n\n"""
 
-    return title + cmd_gtf_to_bed
+    cmd_gtf_to_bed = f""" docker run -it --rm -v $(pwd)/{path}/:/database \\\n\
+        {DICT_CONTAINERS['perl']} \\\n\
+        sh -c "\\\n\
+           perl /database/gtf2bed /database/{filename.replace('bed', 'gtf')} > /database/{filename}\n\
+           rm /database/gtf2bed
+    "\n\n\n"""
+
+    return title + cmd_curl + cmd_gtf_to_bed
 
 
 
@@ -1254,12 +1315,12 @@ def download_segemehl_index_GRCm38(path_db, file_text):
 
 
 def download_aa_data_repo_index_GRCm38(path_db, file_text):
-    subfiles_check = ['annotations/mm10GenomicSuperDup.tab', 'cancer/oncogene_list.txt', 
+    subfiles_check = ['mm10/' + i for i in ['annotations/mm10GenomicSuperDup.tab', 'cancer/oncogene_list.txt', 
                       'dummy_ploidy.vcf', 'file_list.txt', 'file_sources.txt', 'last_updated.txt', 'mm10-blacklist.v2.bed', 
                       'mm10_cnvkit_filtered_ref.cnn', 'mm10_conserved_gain5_onco_subtract.bed', 'mm10.fa.amb', 'mm10.fa.bwt', 
                       'mm10.fa.pac', 'mm10.Hardison.Excludable.full.bed', 'mm10_merged_centromeres_conserved_sorted.bed', 'onco_bed.bed', 
                       'mm10_centromere.bed', 'mm10_conserved_gain5.bed', 'mm10.fa', 'mm10.fa.ann', 'mm10.fa.fai', 'mm10.fa.sa', 
-                      'mm10_k35.mappability.bedgraph', 'mm10_noAlt.fa.fai']
+                      'mm10_k35.mappability.bedgraph', 'mm10_noAlt.fa.fai']]
                       
     if not db_check(path_db, subfiles_check=subfiles_check, min_weight=8 * GB):
         logger.info(f'Database {path_db} already exists. It will not be downloaded.')
@@ -1275,8 +1336,7 @@ def download_aa_data_repo_index_GRCm38(path_db, file_text):
          --file-allocation=none \\\n\
          https://datasets.genepattern.org/data/module_support_files/AmpliconArchitect/mm10_indexed.tar.gz \n\
          tar xzvf {path_db}/mm10_indexed.tar.gz -C {path_db}\n\
-         mv {path_db}/mm10/* {path_db} \n\
-         rm -rf {path_db}/mm10_indexed.tar.gz {path_db}/mm10
+         rm -rf {path_db}/mm10_indexed.tar.gz 
     \n\n\n"""
 
     return title + cmd_aa_repo_index_GRCm38
@@ -1659,6 +1719,7 @@ def write_database_file(text, project):
 DICT_DBS = {'genome_fasta_GRCh38': ('database/genomes/GRCh38/genome.fasta', download_fasta_GRCh38), 
             'transcript_fasta_GRCh38': ('database/genomes/GRCh38/transcript.fasta', download_transcript_fasta_GRCh38), 
             'gtf_GRCh38': ('database/genomes/GRCh38/genes.gtf', download_gtf_GRCh38), 
+            'gtf_corrected_GRCh38': ('database/genomes/GRCh38/genes_corrected.gtf', download_gtf_corrected_GRCh38), 
             'bed_GRCh38': ('database/genomes/GRCh38/genes.bed', download_bed_GRCh38), 
             'star_index_GRCh38': ('database/indexes/GRCh38/STAR', download_star_index_GRCh38),
             'bowtie_index_GRCh38': ('database/indexes/GRCh38/BOWTIE', download_bowtie_index_GRCh38),
@@ -1678,6 +1739,7 @@ DICT_DBS = {'genome_fasta_GRCh38': ('database/genomes/GRCh38/genome.fasta', down
             'genome_fasta_GRCm38': ('database/genomes/GRCm38/genome.fasta', download_fasta_GRCm38), 
             'transcript_fasta_GRCm38': ('database/genomes/GRCm38/transcript.fasta', download_transcript_fasta_GRCm38),
             'gtf_GRCm38': ('database/genomes/GRCm38/genes.gtf', download_gtf_GRCm38), 
+            'gtf_corrected_GRCm38': ('database/genomes/GRCm38/genes_corrected.gtf', download_gtf_corrected_GRCm38), 
             'bed_GRCm38': ('database/genomes/GRCm38/genes.bed', download_bed_GRCm38), 
             'star_index_GRCm38': ('database/indexes/GRCm38/STAR', download_star_index_GRCm38),
             'bowtie_index_GRCm38': ('database/indexes/GRCm38/BOWTIE', download_bowtie_index_GRCm38),

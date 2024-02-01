@@ -81,7 +81,7 @@ DICT_CONTAINERS = {'ncbi-datasets': 'biocontainers/ncbi-datasets-cli:15.12.0_cv2
                    'hisat2': 'quay.io/biocontainers/hisat2:2.2.1--hdbdd923_6',
                    'salmon': 'quay.io/biocontainers/salmon:1.10.2--hecfa306_0',
                    'samtools': 'biocontainers/samtools:v1.9-4-deb_cv1', 
-                   'kallisto': 'quay.io/biocontainers/kallisto:0.50.1--hc877fd6_0', 
+                   'kallisto': 'quay.io/biocontainers/kallisto:0.48.0--h15996b6_2', 
                    'rsem': 'quay.io/biocontainers/rsem:1.3.3--pl526ha52163a_0', 
                    'rsem-star': 'quay.io/biocontainers/mulled-v2-cf0123ef83b3c38c13e3b0696a3f285d3f20f15b:64aad4a4e144878400649e71f42105311be7ed87-0',
                    'cellranger': 'quay.io/nf-core/cellranger:7.1.0', 
@@ -90,4 +90,6 @@ DICT_CONTAINERS = {'ncbi-datasets': 'biocontainers/ncbi-datasets-cli:15.12.0_cv2
                    'centrifuge': 'quay.io/biocontainers/centrifuge:1.0.4--hd03093a_0', 
                    'kraken2': 'quay.io/biocontainers/kraken2:2.1.3--pl5321hdcf5f25_0', 
                    'krakenuniq': 'quay.io/biocontainers/krakenuniq:1.0.4--pl5321h6dccd9a_1', 
-                   'taxpasta': 'quay.io/biocontainers/taxpasta:0.6.1--pyhdfd78af_0'}
+                   'taxpasta': 'quay.io/biocontainers/taxpasta:0.6.1--pyhdfd78af_0', 
+                   'perl': 'quay.io/biocontainers/perl:5.26.2', 
+                   'curl': 'quay.io/curl/curl:latest'}

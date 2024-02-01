@@ -326,6 +326,8 @@ def parse_database_arguments(yaml_dict, list_dbs_to_download):
                     is_aligner = check_entry(yaml_dict[process_name]['nfcore_config'], 'aligner')
                     is_pseudoaligner = check_entry(yaml_dict[process_name]['nfcore_config'], 'pseudo_aligner')
 
+                    gtf_string = 'gtf' # We may need to correct the gtf file because of an error (https://github.com/nf-core/rnaseq/issues/1204)
+
                     if (not is_aligner) & (not is_pseudoaligner):
                         yaml_dict[process_name]['nfcore_config']['aligner'] = DEFAULT_RNASEQ_ALIGNER
                         aligner = yaml_dict[process_name]['nfcore_config']['aligner']
@@ -336,7 +338,7 @@ def parse_database_arguments(yaml_dict, list_dbs_to_download):
                     elif (not is_aligner) & (is_pseudoaligner):
                         aligner = False
                         pseudoaligner = yaml_dict[process_name]['nfcore_config']['pseudo_aligner']
-                        
+                        gtf_string = 'gtf_corrected'
                         skip_aligner = check_entry(yaml_dict[process_name]['nfcore_config'], 'skip_alignment')
                         if not skip_aligner:
                             yaml_dict[process_name]['nfcore_config']['skip_alignment'] = True
@@ -344,7 +346,7 @@ def parse_database_arguments(yaml_dict, list_dbs_to_download):
                         aligner = yaml_dict[process_name]['nfcore_config']['aligner']
                         pseudoaligner = yaml_dict[process_name]['nfcore_config']['pseudo_aligner']
 
-                    fillable_args += ['genome_fasta', 'gtf', 'gene_bed']
+                    fillable_args += ['genome_fasta', gtf_string, 'gene_bed']
 
                     match aligner:
                         # TODO: checkear si en configs sin salmon hace falta el indice de salmon para el paso de infer_strandness                       
@@ -363,9 +365,9 @@ def parse_database_arguments(yaml_dict, list_dbs_to_download):
 
                     match pseudoaligner:
                         case 'kallisto':
-                            fillable_args += ['kallisto_index']
+                            fillable_args += ['kallisto_index', 'star_index', 'salmon_index',] # for some reason STAR index path appears so... 
                         case 'salmon': 
-                            fillable_args += ['salmon_index']
+                            fillable_args += ['salmon_index', 'star_index',]
                         case False:
                             pass
                         case _:
@@ -432,7 +434,7 @@ def parse_database_arguments(yaml_dict, list_dbs_to_download):
 
 
                 case 'circdna':
-                    fillable_args += ['genome_fasta', 'bwa']
+                    fillable_args += ['genome_fasta', 'bwa_index']
 
                     cirdrna_tool = check_entry(yaml_dict[process_name]['nfcore_config'], 'circle_identifier')
                     if (not cirdrna_tool):
@@ -443,6 +445,10 @@ def parse_database_arguments(yaml_dict, list_dbs_to_download):
                         yaml_dict[process_name]['nfcore_config']['reference_build'] = \
                             yaml_dict[process_name]['nfcore_config']['genome']
                         
+                        mosek_dir = check_entry(yaml_dict[process_name]['nfcore_config'], 'mosek_license_dir')
+                        if (not mosek_dir):
+                            yaml_dict[process_name]['nfcore_config']['mosek_license_dir'] = 'src/others'
+
 
                 case _:
                     pass
@@ -459,7 +465,7 @@ def parse_database_arguments(yaml_dict, list_dbs_to_download):
                 else:  # There is no path
                     if arg in ['star', 'bowtie', 'bowtie2', 'bwa', 'hisat2', 'segemehl', 'aa_data_repo']:
                         arg_db = arg + '_index_' + DICT_GENOMES[organism]
-                    elif arg in ['genome_fasta', 'transcript_fasta', 'gtf', 'bed', 'star_index', 'bowtie_index', 'bowtie2_index', \
+                    elif arg in ['genome_fasta', 'transcript_fasta', 'gtf', 'gtf_corrected', 'bed', 'star_index', 'bowtie_index', 'bowtie2_index', \
                                  'bwa_index', 'hisat_index', 'salmon_index', 'rsem_index', 'kallisto_index', 'kallisto_gene_map', \
                                     'cellranger_index', 'universc_index', 'mirgenedb_gff', 'mirbase_gff']:
                         arg_db = arg + '_' + DICT_GENOMES[organism]
