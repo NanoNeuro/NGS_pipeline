@@ -382,7 +382,8 @@ def run_kraken2(yaml_dict, process_name, pipeline, list_samples, list_fastqs_1, 
     --output results/{process_name}/{pipeline}/{profiler_type}/${{SAMPLES[i]}}.output   \\\n\
     --gzip-compressed  \\\n\
     {confidence_str} {kraken2_extra_args_str}  --paired   \\\n\
-    -i ${{FASTQS1[i]}} \\\n -j ${{FASTQS2[i]}} \n\n"
+    ${{FASTQS1[i]}} \\\n\
+    ${{FASTQS2[i]}} \n\n"
 
 
     command_kraken2 += f"gzip   results/{process_name}/{pipeline}/{profiler_type}/${{SAMPLES[i]}}.classified_1.fastq \\\n\
@@ -426,7 +427,8 @@ def run_krakenuniq(yaml_dict, process_name, pipeline, list_samples, list_fastqs_
     --output results/{process_name}/{pipeline}/{profiler_type}/${{SAMPLES[i]}}.output   \\\n\
     --gzip-compressed  {hll_precision_str} {krakenuniq_extra_args_str}  \\\n\
     --paired   \\\n\
-    -i ${{FASTQS1[i]}} \\\n -j ${{FASTQS2[i]}} \n\n"
+    ${{FASTQS1[i]}} \\\n\
+    ${{FASTQS2[i]}} \n\n"
 
 
     command_krakenuniq += f"gzip   results/{process_name}/{pipeline}/{profiler_type}/${{SAMPLES[i]}}.classified.fastq \\\n\
