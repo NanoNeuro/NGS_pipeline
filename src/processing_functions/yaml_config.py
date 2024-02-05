@@ -1,6 +1,6 @@
 import logging
 import os
-import psutil
+import pandas as pd
 import subprocess
 import yaml
 
@@ -439,7 +439,22 @@ def parse_database_arguments(yaml_dict, list_dbs_to_download):
                     cirdrna_tool = check_entry(yaml_dict[process_name]['nfcore_config'], 'circle_identifier')
                     if (not cirdrna_tool):
                         yaml_dict[process_name]['nfcore_config']['circle_identifier'] = DEFAULT_CIRCDNA_TOOL
-                    
+
+
+                    input_format = check_entry(yaml_dict[process_name]['nfcore_config'], 'input_format')
+                    if (not input_format):
+                        samplesheet = yaml_dict[process_name]['nfcore_config']['input']
+                        df = pd.read_csv(samplesheet, sep=',', dtype=str)
+                        format = df['fastq_1'].iloc[0].split('.')[-1]
+
+                        if format.upper() in ['FQ', 'FASTQ', 'GZ']:
+                            yaml_dict[process_name]['nfcore_config']['input_format'] = 'FASTQ'
+                        elif format.upper() in ['BAM', 'SAM']:
+                            yaml_dict[process_name]['nfcore_config']['input_format'] = 'BAM'
+                        else:
+                            err = f"Files in circdna processes have to end in .fastq/.fastq.gz or .bam."
+                            logger.error(err); raise AssertionError(err)
+
                     if 'ampliconarchitect' in yaml_dict[process_name]['nfcore_config']['circle_identifier']:
                         fillable_args += ['aa_data_repo']
                         yaml_dict[process_name]['nfcore_config']['reference_build'] = \

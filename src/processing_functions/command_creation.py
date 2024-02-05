@@ -554,14 +554,16 @@ def process_arg_keys(key, val, pipeline, config_arg="--"):
         return f"""{val.strip().strip("'").strip('"').strip()} \\\n"""
     elif key == 'genome_fasta':
         return f"{config_arg}fasta {val} \\\n"
-    elif (pipeline == 'circdna') & (key == 'bwa_index'):  # In circna is --bwa and path to dir, and in circdna is --bwa_index and path to .bwt file
-        return f"{config_arg}{key} {val}/genome.bwt \\\n"
+    # elif (pipeline == 'circdna') & (key == 'bwa_index'):  # In circna is --bwa and path to dir, and in circdna is --bwa_index and path to .bwt file
+    #     return f"{config_arg}{key} {val}/genome.bwt \\\n"
     elif (pipeline == 'circdna') & (key == 'reference_build') & (val == 'GRCm38'):
         return f"{config_arg}{key} mm10 \\\n"
-    elif 'aa_data_repo' in key: # The path has to be absolute https://github.com/nf-core/circdna/issues/69
-        return f"{config_arg}{key} $(pwd)/{val} \\\n"
     elif 'gtf_corrected'in key: 
         return f"{config_arg}gtf {val} \\\n"
+    elif key in ['aa_data_repo', 'mirbase_gff', 'mirgene_gff', 'mirbase_mature', 'mirbase_hairpin', 
+                 'mirgenedb_mature', 'mirgenedb_hairpin']:
+                    # The path for aa_data_repo has to be absolute https://github.com/nf-core/circdna/issues/69
+        return f"{config_arg}{key} $(pwd)/{val} \\\n"
     elif 'mirbase_' in key:
         if key == 'mirbase_gff':
             return f"{config_arg}mirna_gtf {val} \\\n"
