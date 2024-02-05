@@ -28,10 +28,10 @@ conda activate NGS_pipeline
 
 
 # Install nextflow
-cd $DIR_PROGRAMS
-wget -qO- https://get.nextflow.io | bash
-export PATH="$DIR_PROGRAMS/bin:$PATH"
-source ~/.bashrc
+# cd $DIR_PROGRAMS
+# wget -qO- https://get.nextflow.io | bash
+# export PATH="$DIR_PROGRAMS/bin:$PATH"
+# source ~/.bashrc
 
 
 
