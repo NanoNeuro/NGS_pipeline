@@ -44,10 +44,10 @@ def create_samplesheets(master_samplesheet_path, project, yaml_dict, list_sample
         elif pipeline == 'taxprofiler':
             list_samples = samplesheet_process['sample'].drop_duplicates().values
 
-            path_out_1 = f"results/<PROJECT>/{pipeline}/1st_map/star_salmon/unmapped/<SAMPLE>.unmapped_<STRAND>.fastq.gz"
+            path_out_1 = f"results/<PROJECT>/{process_name}/1st_map/star_salmon/unmapped/<SAMPLE>.unmapped_<STRAND>.fastq.gz"
             samplesheet_process_map_1 = create_samplesheet_map(list_samples, samplesheet_process, path_out_1, project)
 
-            path_out_2 = f"results/<PROJECT>/{pipeline}/2nd_map/<SAMPLE>.unmapped.fastq.<STRAND>.gz"
+            path_out_2 = f"results/<PROJECT>/{process_name}/2nd_map/<SAMPLE>.unmapped.fastq.<STRAND>.gz"
             samplesheet_process_map_2 = create_samplesheet_map(list_samples, samplesheet_process, path_out_2, project)
             
 

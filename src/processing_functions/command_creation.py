@@ -117,18 +117,22 @@ echo "
 
             # Make dirs
             if map_1:
-                os.makedirs(f'results/{project}/1st_map', exist_ok=True)
+                os.makedirs(f"{yaml_dict[process_name]['general_config']['outdir']}/1st_map", exist_ok=True)
             if map_2:
-                os.makedirs(f'results/{project}/2nd_map', exist_ok=True)
+                os.makedirs(f"{yaml_dict[process_name]['general_config']['outdir']}/2nd_map", exist_ok=True)
 
             # Run the mapping processes
             if map_1 & map_2:
-                command_process += run_map_1(genome, project, pipeline, process_name, yaml_dict)
-                command_process += run_map_2(map_1, genome, project, pipeline, process_name, yaml_dict)
+                command_process += run_map_1(yaml_dict=yaml_dict, genome=genome, project=project, pipeline=pipeline, 
+                                             process_name=process_name)
+                command_process += run_map_2(yaml_dict=yaml_dict, map_1=map_1, genome=genome, project=project, pipeline=pipeline, 
+                                             process_name=process_name)
             elif map_1 & (not map_2):
-                command_process += run_map_1(genome, project, pipeline, process_name, yaml_dict)
+                command_process += run_map_1(yaml_dict=yaml_dict, genome=genome, project=project, pipeline=pipeline, 
+                                             process_name=process_name)
             elif (not map_1) & map_2:
-                command_process += run_map_2(map_1, genome, project, pipeline, process_name, yaml_dict)
+                command_process += run_map_2(yaml_dict=yaml_dict, map_1=map_1, genome=genome, project=project, pipeline=pipeline, 
+                                             process_name=process_name)
             else:
                 pass
 
@@ -141,7 +145,7 @@ echo "
             list_profilers = list_profilers_str.split(',')
 
             for profiler in list_profilers:
-                os.makedirs(f'results/{project}/{pipeline}/{profiler}', exist_ok=True)
+                os.makedirs(f"{yaml_dict[process_name]['general_config']['outdir']}/{profiler}", exist_ok=True)
 
                 # Depending on whether map_1 or map_2 have been applied, we are going to create different input values.
                 # We are going to apply the same pattern, either by reading MAP1, MAP2 or INPUT samplesheet.
@@ -195,16 +199,16 @@ echo "
 ################################################################################################
 # SECONDARY FUNCTIONS
 ################################################################################################
-def run_map_1(genome, project, pipeline, process_name, yaml_dict):
+def run_map_1(yaml_dict, genome, project, pipeline, process_name):
 
     samplesheet_in = f"work/{project}/samplesheets/{process_name}.csv"
 
 
-    command_run_1 = f"""echo -e "{'^' * 50}\nPROCESS:  {process_name} | 1ST MAP \n{'^' * 50}\n"  \n\n"""
+    command_run_1 = f"""echo -e "{'-' * 50}\nPROCESS:  {process_name} | 1ST MAP \n{'-' * 50}\n"  \n\n"""
 
     command_run_1 += f"nextflow run nf-core/rnaseq -r {retrieve_r_tag('rnaseq')} -profile docker -resume  \\\n\
     --input {samplesheet_in} \\\n\
-    --outdir results/{project}/{pipeline}/1st_map \\\n\
+    --outdir {yaml_dict[process_name]['general_config']['outdir']}/1st_map \\\n\
     --aligner star_salmon \\\n\
     --fasta {DICT_DBS[f'genome_fasta_{genome}'][0]}\\\n\
     --gtf {DICT_DBS[f'gtf_{genome}'][0]} \\\n\
@@ -226,9 +230,9 @@ def run_map_1(genome, project, pipeline, process_name, yaml_dict):
 
 
 
-def run_map_2(map_1, genome, project, pipeline, process_name, yaml_dict):
+def run_map_2(yaml_dict, map_1, genome, project, pipeline, process_name):
 
-    command_run_2 = f"""echo -e "{'^' * 50}\nPROCESS:  {process_name} | 2ND MAP \n{'^' * 50}\n"  \n\n"""
+    command_run_2 = f"""echo -e "{'-' * 50}\nPROCESS:  {process_name} | 2ND MAP \n{'-' * 50}\n"  \n\n"""
 
     
     if map_1:
@@ -239,26 +243,26 @@ def run_map_2(map_1, genome, project, pipeline, process_name, yaml_dict):
         list_samples, list_fastqs_1, list_fastqs_2 = return_list_fastqs(pd.read_csv(samplesheet_in))
 
 
-    command_run_2 += f"""SAMPLES=({' '.join([f'"{i}"' for i in list_samples])}) \n"""
-    command_run_2 += f"""FASTQS1=({' '.join([f'"{i}"' for i in list_fastqs_1])}) \n"""
-    command_run_2 += f"""FASTQS2=({' '.join([f'"{i}"' for i in list_fastqs_2])}) \n\n"""
+    command_run_2 += f"""SAMPLES=({' '.join([f"{i}" for i in list_samples])}) \n"""
+    command_run_2 += f"""FASTQS1=({' '.join([f"{i}" for i in list_fastqs_1])}) \n"""
+    command_run_2 += f"""FASTQS2=({' '.join([f"{i}" for i in list_fastqs_2])}) \n\n"""
 
     command_run_2 += f"""for ((i=0; i<${{#SAMPLES[@]}}; i++)) \n""" 
     command_run_2 += f"do \n"
 
-    command_run_2 += f"echo ALIGNING ${{SAMPLES[i]}} WITH BOWTIE2 \\\n\
-    bowtie2 -x {DICT_DBS[f'bowtie2_index_{genome}'][0]} \\\n\
+    command_run_2 += f"echo ALIGNING ${{SAMPLES[i]}} WITH BOWTIE2 \n\
+    bowtie2 -x {DICT_DBS[f'bowtie2_index_{genome}'][0]}/genome \\\n\
     -1 ${{FASTQS1[i]}} \\\n\
     -2 ${{FASTQS2[i]}} \\\n\
-    -S results/{project}/{pipeline}/2nd_map/${{SAMPLES[i]}}.aligned.sam \\\n"
+    -S {yaml_dict[process_name]['general_config']['outdir']}/2nd_map/${{SAMPLES[i]}}.aligned.sam \\\n"
 
     if check_entry(yaml_dict[process_name]['host_mapping_config'], '2nd_map_extra_args'):
         val = yaml_dict[process_name]['host_mapping_config']['2nd_map_extra_args']
         val_strip = val.strip().strip("'").strip('"').strip()
         command_run_2 += f'"{val_strip}"'
 
-    command_run_2 +=  f"    --un-conc-gz results/{project}/{pipeline}/2nd_map/${{SAMPLES[i]}}.unmapped.fastq.gz \\\n\
-    --very-sensitive -p {MAX_CPU} \\\n\
+    command_run_2 +=  f"    --un-conc-gz {yaml_dict[process_name]['general_config']['outdir']}/2nd_map/${{SAMPLES[i]}}.unmapped.fastq.gz \\\n\
+    --very-sensitive -p {MAX_CPU} \n\
     done \n\n"
 
     return command_run_2
@@ -267,11 +271,11 @@ def run_map_2(map_1, genome, project, pipeline, process_name, yaml_dict):
 # TODO: outsource profiler commands using quay.io containers
 def run_kaiju(yaml_dict, process_name, pipeline, list_samples, list_fastqs_1, list_fastqs_2):
     profiler_type = 'kaiju'
-    command_kaiju = f"""echo -e "{'^' * 50}\nPROCESS:  {process_name} | KAIJU \n{'^' * 50}\n"  \n\n"""
+    command_kaiju = f"""echo -e "{'-' * 50}\nPROCESS:  {process_name} | KAIJU \n{'-' * 50}\n"  \n\n"""
 
-    command_kaiju += f"""SAMPLES=({' '.join([f'"{i}"' for i in list_samples])}) \n"""
-    command_kaiju += f"""FASTQS1=({' '.join([f'"{i}"' for i in list_fastqs_1])}) \n"""
-    command_kaiju += f"""FASTQS2=({' '.join([f'"{i}"' for i in list_fastqs_2])}) \n\n"""
+    command_kaiju += f"""SAMPLES=({' '.join([f"{i}" for i in list_samples])}) \n"""
+    command_kaiju += f"""FASTQS1=({' '.join([f"{i}" for i in list_fastqs_1])}) \n"""
+    command_kaiju += f"""FASTQS2=({' '.join([f"{i}" for i in list_fastqs_2])}) \n\n"""
     
     command_kaiju += f"""for ((i=0; i<${{#SAMPLES[@]}}; i++)) \n""" 
     command_kaiju += f"do \n"
@@ -290,16 +294,18 @@ def run_kaiju(yaml_dict, process_name, pipeline, list_samples, list_fastqs_1, li
     
 
     for kaiju_db_type in ['refseq', 'fungi', 'plasmid', 'human']:
-        command_kaiju += f"kaiju  -t {DICT_DBS[f'taxpasta'][0]}/nodes.dmp \\\n -f {kaiju_index_str}/kaiju_{kaiju_db_type}.fmi \\\n\
-        -i ${{FASTQS1[i]}} \\\n -j ${{FASTQS2[i]}} \\\n\
+        command_kaiju += f"kaiju  -t {DICT_DBS[f'taxpasta'][0]}/nodes.dmp \\\n\
+            -f {kaiju_index_str} \\\n\
+        -i ${{FASTQS1[i]}} \\\n\
+        -j ${{FASTQS2[i]}} \\\n\
         -z {MAX_CPU} {e_val_str} {min_len_str} {kaiju_extra_args_str} \\\n\
-        -o results/{process_name}/{pipeline}/{profiler_type}/${{SAMPLES[i]}}.{kaiju_db_type}.out \n\n"
+        -o {yaml_dict[process_name]['general_config']['outdir']}/{profiler_type}/${{SAMPLES[i]}}.{kaiju_db_type}.out \n\n"
 
     
     command_kaiju += f"echo 'Merging entries...' \n"
     for kaiju_db_type in ['refseq', 'fungi', 'plasmid', 'human']:
-        command_kaiju += f"sort -k2,2 results/{process_name}/{pipeline}/{profiler_type}/${{SAMPLES[i]}}.{kaiju_db_type}.out \
-                             > results/{process_name}/{pipeline}/{profiler_type}/${{SAMPLES[i]}}.{kaiju_db_type}.sorted.out"
+        command_kaiju += f"sort -k2,2 {yaml_dict[process_name]['general_config']['outdir']}/{profiler_type}/${{SAMPLES[i]}}.{kaiju_db_type}.out \\\n\
+        > {yaml_dict[process_name]['general_config']['outdir']}/{profiler_type}/${{SAMPLES[i]}}.{kaiju_db_type}.sorted.out \n\n"
 
     kaiju_mergeoutputs_extra_args_str = f""
     if check_entry(yaml_dict[process_name]['kaiju_config'], 'kaiju_mergeoutputs_extra_args'):
@@ -308,22 +314,22 @@ def run_kaiju(yaml_dict, process_name, pipeline, list_samples, list_fastqs_1, li
 
     command_kaiju += f"echo 'Combining merged.out files...' \n"
     command_kaiju += f"kaiju-mergeOutputs \\\n\
-    -i results/{process_name}/{pipeline}/{profiler_type}/${{SAMPLES[i]}}.refseq.sorted.out \\\n\
-    -j results/{process_name}/{pipeline}/{profiler_type}/${{SAMPLES[i]}}.fungi.sorted.out \\\n\
+    -i {yaml_dict[process_name]['general_config']['outdir']}/{profiler_type}/${{SAMPLES[i]}}.refseq.sorted.out \\\n\
+    -j {yaml_dict[process_name]['general_config']['outdir']}/{profiler_type}/${{SAMPLES[i]}}.fungi.sorted.out \\\n\
     -c 'lca' -t {DICT_DBS[f'taxpasta'][0]}/nodes.dmp {kaiju_mergeoutputs_extra_args_str} \\\n\
-    -o results/{process_name}/{pipeline}/{profiler_type}/${{SAMPLES[i]}}.refseq-fungi.sorted.out \n\n"
+    -o {yaml_dict[process_name]['general_config']['outdir']}/{profiler_type}/${{SAMPLES[i]}}.refseq-fungi.sorted.out \n\n"
 
     command_kaiju += f"kaiju-mergeOutputs \\\n\
-    -i results/{process_name}/{pipeline}/{profiler_type}/${{SAMPLES[i]}}.plasmid.sorted.out \\\n\
-    -j results/{process_name}/{pipeline}/{profiler_type}/${{SAMPLES[i]}}.human.sorted.out \\\n\
+    -i {yaml_dict[process_name]['general_config']['outdir']}/{profiler_type}/${{SAMPLES[i]}}.plasmid.sorted.out \\\n\
+    -j {yaml_dict[process_name]['general_config']['outdir']}/{profiler_type}/${{SAMPLES[i]}}.human.sorted.out \\\n\
     -c 'lca' -t {DICT_DBS[f'taxpasta'][0]}/nodes.dmp {kaiju_mergeoutputs_extra_args_str} \\\n\
-    -o results/{process_name}/{pipeline}/{profiler_type}/${{SAMPLES[i]}}.human-plasmid.sorted.out \n\n"
+    -o {yaml_dict[process_name]['general_config']['outdir']}/{profiler_type}/${{SAMPLES[i]}}.human-plasmid.sorted.out \n\n"
 
     command_kaiju += f"kaiju-mergeOutputs \\\n\
-    -i results/{process_name}/{pipeline}/{profiler_type}/${{SAMPLES[i]}}.human-plasmid.sorted.out \\\n\
-    -j results/{process_name}/{pipeline}/{profiler_type}/${{SAMPLES[i]}}.refseq-fungi.sorted.out \\\n\
+    -i {yaml_dict[process_name]['general_config']['outdir']}/{profiler_type}/${{SAMPLES[i]}}.human-plasmid.sorted.out \\\n\
+    -j {yaml_dict[process_name]['general_config']['outdir']}/{profiler_type}/${{SAMPLES[i]}}.refseq-fungi.sorted.out \\\n\
     -c 'lca' -t {DICT_DBS[f'taxpasta'][0]}/nodes.dmp {kaiju_mergeoutputs_extra_args_str} \\\n\
-    -o results/{process_name}/{pipeline}/{profiler_type}/${{SAMPLES[i]}}.merged.out \n\n"
+    -o {yaml_dict[process_name]['general_config']['outdir']}/{profiler_type}/${{SAMPLES[i]}}.merged.out \n\n\n"
 
 
     kaiju2table_extra_args_str = f""
@@ -332,20 +338,19 @@ def run_kaiju(yaml_dict, process_name, pipeline, list_samples, list_fastqs_1, li
         kaiju2table_extra_args_str = val.strip().strip("'").strip('"').strip()
     
     min_reads_str = f"-c {yaml_dict[process_name]['kaiju_config']['minimum_reads']}" if check_entry(yaml_dict[process_name]['kaiju_config'], 'minimum_reads') else ''   
-    command_kaiju += f"echo 'Creating kaiju table...'"
+    command_kaiju += f"echo 'Creating kaiju table...'\n"
     command_kaiju += f"kaiju2table -t {DICT_DBS[f'taxpasta'][0]}/nodes.dmp \\\n\
     -n {DICT_DBS[f'taxpasta'][0]}/names.dmp \\\n\
     -r species {min_reads_str} \\\n\
     -e \\\n\
     -p {kaiju2table_extra_args_str}\\\n\
-    -o results/{process_name}/{pipeline}/{profiler_type}/${{SAMPLES[i]}}.report \\\n\
-    results/{process_name}/{pipeline}/{profiler_type}/${{SAMPLES[i]}}.merged.out  \\\n"
+    -o {yaml_dict[process_name]['general_config']['outdir']}/{profiler_type}/${{SAMPLES[i]}}.report \\\n\
+    {yaml_dict[process_name]['general_config']['outdir']}/{profiler_type}/${{SAMPLES[i]}}.merged.out  \n\n"
 
     
 
     command_kaiju += f"echo 'Removing .out files...' \n"
-    command_kaiju += f"rm results/{process_name}/{pipeline}/{profiler_type}/${{SAMPLES[i]}}.*.out \n"
-
+    command_kaiju += f"rm {yaml_dict[process_name]['general_config']['outdir']}/{profiler_type}/${{SAMPLES[i]}}.*.out \n"
     command_kaiju += f"done \n\n"
 
 
@@ -355,11 +360,11 @@ def run_kaiju(yaml_dict, process_name, pipeline, list_samples, list_fastqs_1, li
 
 def run_kraken2(yaml_dict, process_name, pipeline, list_samples, list_fastqs_1, list_fastqs_2):
     profiler_type = 'kraken2'
-    command_kraken2 = f"""echo -e "{'^' * 50}\nPROCESS:  {process_name} | KRAKEN2 \n{'^' * 50}\n"  \n\n"""
+    command_kraken2 = f"""echo -e "{'-' * 50}\nPROCESS:  {process_name} | KRAKEN2 \n{'-' * 50}\n"  \n\n"""
 
-    command_kraken2 += f"""SAMPLES=({' '.join([f'"{i}"' for i in list_samples])}) \n"""
-    command_kraken2 += f"""FASTQS1=({' '.join([f'"{i}"' for i in list_fastqs_1])}) \n"""
-    command_kraken2 += f"""FASTQS2=({' '.join([f'"{i}"' for i in list_fastqs_2])}) \n\n"""
+    command_kraken2 += f"""SAMPLES=({' '.join([f"{i}" for i in list_samples])}) \n"""
+    command_kraken2 += f"""FASTQS1=({' '.join([f"{i}" for i in list_fastqs_1])}) \n"""
+    command_kraken2 += f"""FASTQS2=({' '.join([f"{i}" for i in list_fastqs_2])}) \n\n"""
     
 
     confidence_str = f"--confidence {yaml_dict[process_name]['kraken2_config']['confidence']}" if check_entry(yaml_dict[process_name]['kraken2_config'], 'confidence') else ''
@@ -376,20 +381,20 @@ def run_kraken2(yaml_dict, process_name, pipeline, list_samples, list_fastqs_1, 
 
     command_kraken2 += f"kraken2 -db {kraken2_index_str} \\\n\
     --threads {MAX_CPU}\\\n\
-    --report results/{process_name}/{pipeline}/{profiler_type}/${{SAMPLES[i]}}.report    \\\n\
-    --classified-out results/{process_name}/{pipeline}/{profiler_type}/${{SAMPLES[i]}}.classified#.fastq   \\\n\
-    --unclassified-out results/{process_name}/{pipeline}/{profiler_type}/${{SAMPLES[i]}}.unclassified#.fastq   \\\n\
-    --output results/{process_name}/{pipeline}/{profiler_type}/${{SAMPLES[i]}}.output   \\\n\
+    --report {yaml_dict[process_name]['general_config']['outdir']}/{profiler_type}/${{SAMPLES[i]}}.report    \\\n\
+    --classified-out {yaml_dict[process_name]['general_config']['outdir']}/{profiler_type}/${{SAMPLES[i]}}.classified#.fastq   \\\n\
+    --unclassified-out {yaml_dict[process_name]['general_config']['outdir']}/{profiler_type}/${{SAMPLES[i]}}.unclassified#.fastq   \\\n\
+    --output {yaml_dict[process_name]['general_config']['outdir']}/{profiler_type}/${{SAMPLES[i]}}.output   \\\n\
     --gzip-compressed  \\\n\
     {confidence_str} {kraken2_extra_args_str}  --paired   \\\n\
     ${{FASTQS1[i]}} \\\n\
     ${{FASTQS2[i]}} \n\n"
 
 
-    command_kraken2 += f"gzip   results/{process_name}/{pipeline}/{profiler_type}/${{SAMPLES[i]}}.classified_1.fastq \\\n\
-                                results/{process_name}/{pipeline}/{profiler_type}/${{SAMPLES[i]}}.classified_2.fastq \\\n\
-                                results/{process_name}/{pipeline}/{profiler_type}/${{SAMPLES[i]}}.unclassified_1.fastq \\\n\
-                                results/{process_name}/{pipeline}/{profiler_type}/${{SAMPLES[i]}}.unclassified_2.fastq \n\n"
+    command_kraken2 += f"gzip   {yaml_dict[process_name]['general_config']['outdir']}/{profiler_type}/${{SAMPLES[i]}}.classified_1.fastq \\\n\
+                                {yaml_dict[process_name]['general_config']['outdir']}/{profiler_type}/${{SAMPLES[i]}}.classified_2.fastq \\\n\
+                                {yaml_dict[process_name]['general_config']['outdir']}/{profiler_type}/${{SAMPLES[i]}}.unclassified_1.fastq \\\n\
+                                {yaml_dict[process_name]['general_config']['outdir']}/{profiler_type}/${{SAMPLES[i]}}.unclassified_2.fastq \n\n"
 
 
     command_kraken2 += f"done \n\n"
@@ -400,11 +405,11 @@ def run_kraken2(yaml_dict, process_name, pipeline, list_samples, list_fastqs_1, 
 
 def run_krakenuniq(yaml_dict, process_name, pipeline, list_samples, list_fastqs_1, list_fastqs_2):
     profiler_type = 'krakenuniq'
-    command_krakenuniq = f"""echo -e "{'^' * 50}\nPROCESS:  {process_name} | KRAKENUNIQ \n{'^' * 50}\n"  \n\n"""
+    command_krakenuniq = f"""echo -e "{'-' * 50}\nPROCESS:  {process_name} | KRAKENUNIQ \n{'-' * 50}\n"  \n\n"""
 
-    command_krakenuniq += f"""SAMPLES=({' '.join([f'"{i}"' for i in list_samples])}) \n"""
-    command_krakenuniq += f"""FASTQS1=({' '.join([f'"{i}"' for i in list_fastqs_1])}) \n"""
-    command_krakenuniq += f"""FASTQS2=({' '.join([f'"{i}"' for i in list_fastqs_2])})\n\n"""
+    command_krakenuniq += f"""SAMPLES=({' '.join([f"{i}" for i in list_samples])}) \n"""
+    command_krakenuniq += f"""FASTQS1=({' '.join([f"{i}" for i in list_fastqs_1])}) \n"""
+    command_krakenuniq += f"""FASTQS2=({' '.join([f"{i}" for i in list_fastqs_2])})\n\n"""
     
 
     hll_precision_str = f"--hll-precision {yaml_dict[process_name]['krakenuniq_config']['hll_precision']}" if check_entry(yaml_dict[process_name]['krakenuniq_config'], 'hll_precision') else ''
@@ -421,18 +426,18 @@ def run_krakenuniq(yaml_dict, process_name, pipeline, list_samples, list_fastqs_
 
     command_krakenuniq += f"krakenuniq -db {krakenuniq_index_str} \\\n\
     --threads {MAX_CPU}\\\n\
-    --report results/{process_name}/{pipeline}/{profiler_type}/${{SAMPLES[i]}}.report    \\\n\
-    --classified-out results/{process_name}/{pipeline}/{profiler_type}/${{SAMPLES[i]}}.classified#.fastq   \\\n\
-    --unclassified-out results/{process_name}/{pipeline}/{profiler_type}/${{SAMPLES[i]}}.unclassified#.fastq   \\\n\
-    --output results/{process_name}/{pipeline}/{profiler_type}/${{SAMPLES[i]}}.output   \\\n\
+    --report {yaml_dict[process_name]['general_config']['outdir']}/{profiler_type}/${{SAMPLES[i]}}.report    \\\n\
+    --classified-out {yaml_dict[process_name]['general_config']['outdir']}/{profiler_type}/${{SAMPLES[i]}}.classified#.fastq   \\\n\
+    --unclassified-out {yaml_dict[process_name]['general_config']['outdir']}/{profiler_type}/${{SAMPLES[i]}}.unclassified#.fastq   \\\n\
+    --output {yaml_dict[process_name]['general_config']['outdir']}/{profiler_type}/${{SAMPLES[i]}}.output   \\\n\
     --gzip-compressed  {hll_precision_str} {krakenuniq_extra_args_str}  \\\n\
     --paired   \\\n\
     ${{FASTQS1[i]}} \\\n\
     ${{FASTQS2[i]}} \n\n"
 
 
-    command_krakenuniq += f"gzip   results/{process_name}/{pipeline}/{profiler_type}/${{SAMPLES[i]}}.classified.fastq \\\n\
-                                results/{process_name}/{pipeline}/{profiler_type}/${{SAMPLES[i]}}.unclassified.fastq \n\n"
+    command_krakenuniq += f"gzip   {yaml_dict[process_name]['general_config']['outdir']}/{profiler_type}/${{SAMPLES[i]}}.classified.fastq \\\n\
+                                {yaml_dict[process_name]['general_config']['outdir']}/{profiler_type}/${{SAMPLES[i]}}.unclassified.fastq \n\n"
 
 
     command_krakenuniq += f"done \n\n"
@@ -444,11 +449,11 @@ def run_krakenuniq(yaml_dict, process_name, pipeline, list_samples, list_fastqs_
 def run_centrifuge(yaml_dict, process_name, pipeline, list_samples, list_fastqs_1, list_fastqs_2):
     profiler_type = 'centrifuge'
 
-    command_centrifuge = f"""echo -e "{'^' * 50}\nPROCESS:  {process_name} | CENTRIFUGE \n{'^' * 50}\n"  \n\n"""
+    command_centrifuge = f"""echo -e "{'-' * 50}\nPROCESS:  {process_name} | CENTRIFUGE \n{'-' * 50}\n"  \n\n"""
 
-    command_centrifuge += f"""SAMPLES=({' '.join([f'"{i}"' for i in list_samples])}) \n"""
-    command_centrifuge += f"""FASTQS1=({' '.join([f'"{i}"' for i in list_fastqs_1])}) \n"""
-    command_centrifuge += f"""FASTQS2=({' '.join([f'"{i}"' for i in list_fastqs_2])}) \n\n"""
+    command_centrifuge += f"""SAMPLES=({' '.join([f"{i}" for i in list_samples])}) \n"""
+    command_centrifuge += f"""FASTQS1=({' '.join([f"{i}" for i in list_fastqs_1])}) \n"""
+    command_centrifuge += f"""FASTQS2=({' '.join([f"{i}" for i in list_fastqs_2])}) \n\n"""
     
 
     minimum_length_str = f"--min-hitlen  {yaml_dict[process_name]['centrifuge_config']['minimum_length']}" if check_entry(yaml_dict[process_name]['centrifuge_config'], 'minimum_length') else ''
@@ -468,8 +473,8 @@ def run_centrifuge(yaml_dict, process_name, pipeline, list_samples, list_fastqs_
     -x {centrifuge_index_str}/p+h+v \\\n\
     -1 ${{FASTQS1[i]}} \\\n\
     -2 ${{FASTQS2[i]}} \\\n\
-    -S  results/{process_name}/{pipeline}/{profiler_type}/${{SAMPLES[i]}}.classification_HABV \\\n\
-    --report-file  results/{process_name}/{pipeline}/{profiler_type}/${{SAMPLES[i]}}.report.txt \\\n\
+    -S  {yaml_dict[process_name]['general_config']['outdir']}/{profiler_type}/${{SAMPLES[i]}}.classification_HABV \\\n\
+    --report-file  {yaml_dict[process_name]['general_config']['outdir']}/{profiler_type}/${{SAMPLES[i]}}.report.txt \\\n\
     --threads {MAX_CPU} \\\n\
     {minimum_length_str} {qc_filter_str} {centrigue_extra_args_str}  --mm  \n\n"
 
@@ -477,8 +482,8 @@ def run_centrifuge(yaml_dict, process_name, pipeline, list_samples, list_fastqs_
     -x {centrifuge_index_str}/f+p \\\n\
     -1 ${{FASTQS1[i]}} \\\n\
     -2 ${{FASTQS2[i]}} \\\n\
-    -S  results/{process_name}/{pipeline}/{profiler_type}/${{SAMPLES[i]}}.classification_FP \\\n\
-    --report-file  results/{process_name}/{pipeline}/{profiler_type}/${{SAMPLES[i]}}.report.txt \\\n\
+    -S  {yaml_dict[process_name]['general_config']['outdir']}/{profiler_type}/${{SAMPLES[i]}}.classification_FP \\\n\
+    --report-file  {yaml_dict[process_name]['general_config']['outdir']}/{profiler_type}/${{SAMPLES[i]}}.report.txt \\\n\
     --threads {MAX_CPU} \\\n\
     {minimum_length_str} {qc_filter_str} {centrigue_extra_args_str}  --mm  \n\n"
     
@@ -486,9 +491,9 @@ def run_centrifuge(yaml_dict, process_name, pipeline, list_samples, list_fastqs_
     
     command_centrifuge += f"centrifuge-kreport \\\n\
     -x {centrifuge_index_str}/nt {minimum_length_str} \\\n\
-    results/{process_name}/{pipeline}/{profiler_type}/${{SAMPLES[i]}}.classification_HABV \\\n\
-    results/{process_name}/{pipeline}/{profiler_type}/${{SAMPLES[i]}}.classification_FP >> \
-        results/{process_name}/{pipeline}/{profiler_type}/${{SAMPLES[i]}}.report"
+    {yaml_dict[process_name]['general_config']['outdir']}/{profiler_type}/${{SAMPLES[i]}}.classification_HABV \\\n\
+    {yaml_dict[process_name]['general_config']['outdir']}/{profiler_type}/${{SAMPLES[i]}}.classification_FP >> \
+        {yaml_dict[process_name]['general_config']['outdir']}/{profiler_type}/${{SAMPLES[i]}}.report\n\n"
     
 
     command_centrifuge += f"done \n\n"
@@ -511,8 +516,8 @@ def run_taxpasta(yaml_dict, list_profilers, process_name, pipeline, list_samples
         val = yaml_dict[process_name]['taxpasta_config']['taxpasta_extra_args']
         taxpasta_extra_args_str = val.strip().strip("'").strip('"').strip()
 
-    command_taxpasta = f"""echo -e "{'^' * 50}\nPROCESS:  {process_name} | TAXPASTA \n{'^' * 50}\n"  \n\n"""
-    command_taxpasta += f"""SAMPLES=({' '.join([f'"{i}"' for i in list_samples])}) \n"""
+    command_taxpasta = f"""echo -e "{'-' * 50}\nPROCESS:  {process_name} | TAXPASTA \n{'-' * 50}\n"  \n\n"""
+    command_taxpasta += f"""SAMPLES=({' '.join([f"{i}" for i in list_samples])}) \n"""
 
     command_taxpasta += f"""for ((i=0; i<${{#SAMPLES[@]}}; i++)) \n""" 
     command_taxpasta += f"do \n"
@@ -522,15 +527,15 @@ def run_taxpasta(yaml_dict, list_profilers, process_name, pipeline, list_samples
 
         if list_exclusions is not None:
             str_exclusions = f'|'.join(map(str, list_exclusions))
-            command_taxpasta += f"grep -vE {str_exclusions} results/{process_name}/{pipeline}/{profiler}/${{SAMPLES[i]}}.report > \
-                                           results/{process_name}/{pipeline}/{profiler}/${{SAMPLES[i]}}.report.pretaxpasta \n"
+            command_taxpasta += f"grep -vE {str_exclusions} {yaml_dict[process_name]['general_config']['outdir']}/{profiler}/${{SAMPLES[i]}}.report > \
+                                           {yaml_dict[process_name]['general_config']['outdir']}/{profiler}/${{SAMPLES[i]}}.report.pretaxpasta \n"
         else:
-            command_taxpasta += f"cp results/{process_name}/{pipeline}/{profiler}/${{SAMPLES[i]}}.report \
-                                     results/{process_name}/{pipeline}/{profiler}/${{SAMPLES[i]}}.report.pretaxpasta    \n"
+            command_taxpasta += f"cp {yaml_dict[process_name]['general_config']['outdir']}/{profiler}/${{SAMPLES[i]}}.report \
+            {yaml_dict[process_name]['general_config']['outdir']}/{profiler}/${{SAMPLES[i]}}.report.pretaxpasta    \n"
 
         command_taxpasta += f"taxpasta standardise -p {profiler} {add_name_str} {add_lineage_str} {summarise_at_str} {taxpasta_dir_str} {output_format_str} \\\n\
-                -o results/{process_name}/{pipeline}/{profiler}/${{SAMPLES[i]}}.report.standardised  {taxpasta_extra_args_str} \\\n\
-                results/{process_name}/{pipeline}/{profiler}/${{SAMPLES[i]}}.report.pretaxpasta \n\n"
+                -o {yaml_dict[process_name]['general_config']['outdir']}/{profiler}/${{SAMPLES[i]}}.report.standardised  {taxpasta_extra_args_str} \\\n\
+                {yaml_dict[process_name]['general_config']['outdir']}/{profiler}/${{SAMPLES[i]}}.report.pretaxpasta \n\n"
 
     command_taxpasta += f"done \n\n"
 
@@ -556,8 +561,8 @@ def process_arg_keys(key, val, pipeline, config_arg="--"):
         return f"""{val.strip().strip("'").strip('"').strip()} \\\n"""
     elif key == 'genome_fasta':
         return f"{config_arg}fasta {val} \\\n"
-    # elif (pipeline == 'circdna') & (key == 'bwa_index'):  # In circna is --bwa and path to dir, and in circdna is --bwa_index and path to .bwt file
-    #     return f"{config_arg}{key} {val}/genome.bwt \\\n"
+    elif (pipeline == 'circdna') & (key == 'bwa_index'):  # In circna is --bwa and path to dir, and in circdna is --bwa_index and path to .bwt file
+        return f"{config_arg}{key} {val}/genome \\\n"
     elif (pipeline == 'circdna') & (key == 'reference_build') & (val == 'GRCm38'):
         return f"{config_arg}{key} mm10 \\\n"
     elif 'gtf_corrected'in key: 

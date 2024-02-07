@@ -1650,20 +1650,22 @@ def download_krakenuniq(path_db, file_text):
 
 
 def download_taxpasta(path_db, file_text):
-    subfiles_check = []
+    subfiles_check = ['citations.dmp', 'delnodes.dmp', 'division.dmp','gencode.dmp', 'images.dmp','merged.dmp',
+                      'names.dmp','nodes.dmp','gc.prt','readme.txt'
+]
     
-    if not db_check(path_db, subfiles_check=subfiles_check, min_weight=0.1 * MB):
+    if not db_check(path_db, subfiles_check=subfiles_check, min_weight=400 * MB):
         logger.info(f'Database {path_db} already exists. It will not be downloaded.')
         return ""  # I write the code as such to avoid encapsulation.
 
     title = """echo "### Downloading taxpasta files."\n\n"""
     path, _ = os.path.split(path_db)
-    os.makedirs(path, exist_ok=True)
+    os.makedirs(path_db, exist_ok=True)
 
 
-    cmd = f"""wget ftp.ncbi.nih.gov/pub/taxonomy/taxdump.tar.gz -O /{path_db}/taxdump.tar.gz \n\
-              tar xvf /{path_db}/taxpasta/taxdump.tar.gz -C /{path_db}/taxpasta/  \n\
-              rm  /{path_db}/taxpasta/*.tar.gz \n\n\n"""
+    cmd = f"""wget ftp.ncbi.nih.gov/pub/taxonomy/taxdump.tar.gz -O {path_db}/taxdump.tar.gz \n\
+              tar xvf {path_db}/taxdump.tar.gz -C {path_db}/  \n\
+              rm  {path_db}/*.tar.gz \n\n\n"""
 
     return title + cmd
 

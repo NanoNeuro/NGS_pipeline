@@ -512,10 +512,10 @@ def parse_database_arguments(yaml_dict, list_dbs_to_download):
 
                     
         elif pipeline == 'taxprofiler': # pipeline is taxprofiler
-            fillable_args = []
+            fillable_args = ['taxpasta']
             # databases related to 1st and 2nd maps: 
             if yaml_dict[process_name]['host_mapping_config']['1st_map']:
-                for db in ['genome_fasta', 'gtf', 'star_index', 'salmon_index', 'rsem_index']:
+                for db in ['genome_fasta', 'transcript_fasta', 'gtf', 'star_index', 'salmon_index', 'rsem_index']:
                     fillable_args.append(db + '_' + DICT_GENOMES[organism])
 
             if yaml_dict[process_name]['host_mapping_config']['2nd_map']:
