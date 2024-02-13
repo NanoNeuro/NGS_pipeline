@@ -1,0 +1,1 @@
+echo "This is a sample postscript for the pipeline."

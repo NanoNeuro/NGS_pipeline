@@ -89,6 +89,9 @@ echo "
 
         #TODO: IMPRIMIR LOS ARGUMENTOS 
 
+        # Print prescript
+        if len(yaml_dict[process_name]['prescript']) > 0:
+            command_process += yaml_dict[process_name]['prescript'] + "\n\n"
 
         if pipeline in NF_CONFIG_PIPELINES:
             command_process += f"nextflow run nf-core/{pipeline} \\\n\
@@ -181,6 +184,11 @@ echo "
         # WRITE COMMAND
         if '\\' in command_process[: -3]: # To remove the last "\" in the command
             command_process =  command_process[: -3]
+
+
+        # Print postscript
+        if len(yaml_dict[process_name]['postscript']) > 0:
+            command_process += "\n\n" + yaml_dict[process_name]['postscript'] 
 
         file_text += command_process + '\n\n\n'  
 
@@ -565,8 +573,6 @@ def process_arg_keys(key, val, pipeline, config_arg="--"):
         return f"{config_arg}{key} {val}/genome \\\n"
     elif (pipeline == 'circdna') & (key == 'reference_build') & (val == 'GRCm38'):
         return f"{config_arg}{key} mm10 \\\n"
-    elif 'gtf_corrected'in key: 
-        return f"{config_arg}gtf {val} \\\n"
     elif key in ['aa_data_repo', 'mirbase_gff', 'mirgene_gff', 'mirbase_mature', 'mirbase_hairpin', 
                  'mirgenedb_mature', 'mirgenedb_hairpin']:
                     # The path for aa_data_repo has to be absolute https://github.com/nf-core/circdna/issues/69

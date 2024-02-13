@@ -5,7 +5,6 @@ from .versions import VERSION
 from .global_vars_and_funcs import MAX_CPU, MAX_RAM, MB, GB, DICT_CONTAINERS, ENSEMBL_VERSION_HUMAN, ENSEMBL_VERSION_MOUSE, HISAT2_LIMIT_MEM
 
 
-
 logger = logging.getLogger()
 
 
@@ -62,9 +61,9 @@ echo "
 "
 """
 
+    list_dbs_sorted = sorted(list_dbs, key=custom_sort_dict_dbs)
 
-
-    for db in list_dbs:
+    for db in list_dbs_sorted:
         path_db, func_db = DICT_DBS[db]
         text_db = func_db(path_db, file_text)
         file_text += text_db
@@ -112,7 +111,7 @@ def download_fasta_GRCh38(path_db, file_text):
    
 
 def download_transcript_fasta_GRCh38(path_db, file_text):
-    if not db_check(path_db, subfiles_check=[], min_weight=440 * MB):
+    if not db_check(path_db, subfiles_check=[], min_weight=300 * MB):
         logger.info(f'Database {path_db} already exists. It will not be downloaded.')
         return ""  # I write the code as such to avoid encapsulation.
 
@@ -123,14 +122,13 @@ def download_transcript_fasta_GRCh38(path_db, file_text):
     title = """echo "### Downloading GRCh38 transcript fasta file."\n\n"""
 
     cmd = f""" docker run -it --rm -v $(pwd)/database/:/database \\\n\
-        {DICT_CONTAINERS['aria2c']} \\\n\
-        --file-allocation=none -x {MAX_CPU} -d /{path} https://ftp.ensembl.org/pub/release-{ENSEMBL_VERSION_HUMAN}/fasta/homo_sapiens/cdna/Homo_sapiens.GRCh38.cdna.all.fa.gz\n\
-            gzip -d {path}/Homo_sapiens.GRCh38.cdna.all.fa.gz\n\
-            mv {path}/Homo_sapiens.GRCh38.cdna.all.fa {path}/{filename}
-    \n\n\n"""
-    
-
-
+        {DICT_CONTAINERS['gffread']} \\\n\
+        sh -c "\\\n\
+            gffread \\\n\
+            -w /{path_db} \\\n\
+            -g /{DICT_DBS['genome_fasta_GRCh38'][0]} \\\n\
+            /{DICT_DBS['gtf_GRCh38'][0]}
+    "\n\n\n"""
 
     return title + cmd
 
@@ -164,30 +162,6 @@ def download_gtf_GRCh38(path_db, file_text):
 
 
     return title + cmd_gtf + cmd_gff
-
-
-
-def download_gtf_corrected_GRCh38(path_db, file_text):
-    if not db_check(path_db, subfiles_check=[], min_weight=500 * MB):
-        logger.info(f'Database {path_db} already exists. It will not be downloaded.')
-        return ""  # I write the code as such to avoid encapsulation.
-
-        
-    path, filename = os.path.split(path_db)
-    os.makedirs(path, exist_ok=True)
-
-    if 'Downloading GRCh38 gene gtf file' not in file_text:
-        download_gtf_GRCh38(DICT_DBS['gtf_GRCh38'][0], file_text)
-
-    title = """echo "### Applying correction to GRCh38 gtf file."\n\n"""
-
-    cmd_gtf = f""" python src/others/generate_correct_gtf.py \\\n\
-        --input {path_db.replace('_corrected', '')}  \\\n\
-        --output {path_db}
-    \n\n\n"""
-
-
-    return title + cmd_gtf
 
 
 
@@ -813,11 +787,13 @@ def download_transcript_fasta_GRCm38(path_db, file_text):
     title = """echo "### Downloading GRCm38 transcript fasta file."\n\n"""
 
     cmd = f""" docker run -it --rm -v $(pwd)/database/:/database \\\n\
-        {DICT_CONTAINERS['aria2c']} \\\n\
-        --file-allocation=none -x {MAX_CPU} -d /{path} https://ftp.ensembl.org/pub/release-{ENSEMBL_VERSION_MOUSE}/fasta/mus_musculus/cdna/Mus_musculus.GRCm38.cdna.all.fa.gz\n\
-            gzip -d {path}/Mus_musculus.GRCm38.cdna.all.fa.gz\n\
-            mv {path}/Mus_musculus.GRCm38.cdna.all.fa {path}/{filename}
-    \n\n\n"""
+        {DICT_CONTAINERS['gffread']} \\\n\
+        sh -c "\\\n\
+            gffread \\\n\
+            -w /{path_db} \\\n\
+            -g /{DICT_DBS['genome_fasta_GRCm38'][0]} \\\n\
+            /{DICT_DBS['gtf_GRCm38'][0]}
+    "\n\n\n"""
 
 
     return title + cmd
@@ -853,29 +829,6 @@ def download_gtf_GRCm38(path_db, file_text):
 
     return title + cmd_gtf + cmd_gff
 
-
-
-def download_gtf_corrected_GRCm38(path_db, file_text):
-    if not db_check(path_db, subfiles_check=[], min_weight=500 * MB):
-        logger.info(f'Database {path_db} already exists. It will not be downloaded.')
-        return ""  # I write the code as such to avoid encapsulation.
-
-        
-    path, filename = os.path.split(path_db)
-    os.makedirs(path, exist_ok=True)
-
-    if 'Downloading GRCm38 gene gtf file' not in file_text:
-        download_gtf_GRCm38(DICT_DBS['gtf_GRCm38'][0], file_text)
-
-    title = """echo "### Applying correction to GRCm38 gtf file."\n\n"""
-
-    cmd_gtf = f""" python src/others/generate_correct_gtf.py \\\n\
-        --input {path_db.replace('_corrected', '')}  \\\n\
-        --output {path_db}
-    \n\n\n"""
-
-
-    return title + cmd_gtf
 
 
 
@@ -1715,13 +1668,17 @@ def write_database_file(text, project):
         file_out.write(text)
 
 
+def custom_sort_dict_dbs(item):
+    list_dbs = list(DICT_DBS.keys())
+    return list_dbs.index(item)
+
+
 ################################################################################################
 # VARIABLES
 ################################################################################################
 DICT_DBS = {'genome_fasta_GRCh38': ('database/genomes/GRCh38/genome.fasta', download_fasta_GRCh38), 
             'transcript_fasta_GRCh38': ('database/genomes/GRCh38/transcript.fasta', download_transcript_fasta_GRCh38), 
             'gtf_GRCh38': ('database/genomes/GRCh38/genes.gtf', download_gtf_GRCh38), 
-            'gtf_corrected_GRCh38': ('database/genomes/GRCh38/genes_corrected.gtf', download_gtf_corrected_GRCh38), 
             'bed_GRCh38': ('database/genomes/GRCh38/genes.bed', download_bed_GRCh38), 
             'star_index_GRCh38': ('database/indexes/GRCh38/STAR', download_star_index_GRCh38),
             'bowtie_index_GRCh38': ('database/indexes/GRCh38/BOWTIE', download_bowtie_index_GRCh38),
@@ -1741,7 +1698,6 @@ DICT_DBS = {'genome_fasta_GRCh38': ('database/genomes/GRCh38/genome.fasta', down
             'genome_fasta_GRCm38': ('database/genomes/GRCm38/genome.fasta', download_fasta_GRCm38), 
             'transcript_fasta_GRCm38': ('database/genomes/GRCm38/transcript.fasta', download_transcript_fasta_GRCm38),
             'gtf_GRCm38': ('database/genomes/GRCm38/genes.gtf', download_gtf_GRCm38), 
-            'gtf_corrected_GRCm38': ('database/genomes/GRCm38/genes_corrected.gtf', download_gtf_corrected_GRCm38), 
             'bed_GRCm38': ('database/genomes/GRCm38/genes.bed', download_bed_GRCm38), 
             'star_index_GRCm38': ('database/indexes/GRCm38/STAR', download_star_index_GRCm38),
             'bowtie_index_GRCm38': ('database/indexes/GRCm38/BOWTIE', download_bowtie_index_GRCm38),

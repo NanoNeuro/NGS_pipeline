@@ -52,7 +52,7 @@ def parse_yaml_file(yaml_path, project, samplesheet):
     logging.info(f'Parsing YAML.')
 
     # Checks of general arguments
-    parse_general_config(yaml_dict, project)
+    parse_general_config_and_scripts(yaml_dict, project)
 
 
     # Now we are going to order the dictionary of processes. This is because some pipelines may require results from previous 
@@ -73,7 +73,7 @@ def parse_yaml_file(yaml_path, project, samplesheet):
 
 
     # Then, we are going to check the database to download and append that to the list of databases to download
-    parse_database_arguments(yaml_dict, list_dbs_to_download)
+    parse_database_arguments(yaml_dict, list_dbs_to_download, master_samplesheet_path=f"projects/{project}/{samplesheet}")
 
 
 
@@ -83,7 +83,9 @@ def parse_yaml_file(yaml_path, project, samplesheet):
 ################################################################################################
 # SECONDARY FUNCTIONS
 ################################################################################################
-def parse_general_config(yaml_dict, project):
+def parse_general_config_and_scripts(yaml_dict, project):
+    # In this section we are going to parse the general configuration, but also the pre and postscripts.
+    # Regarding pre- postscripts we are going to check that the configuration is correct (a string).
     for process_name, process_info in yaml_dict.items():
         logging.info(f'Parsing YAML - general config (process {process_name}).')
         # We first are going to check that the pipeline exists and the organism is human or mouse.
@@ -159,6 +161,20 @@ def parse_general_config(yaml_dict, project):
                 yaml_dict[process_name][config] = {}
         
 
+        # Checking pre/postcript
+        if 'prescript' not in process_info:
+            yaml_dict[process_name]['prescript'] = ''
+        else:
+            if type(yaml_dict[process_name]['prescript']) is not str:
+                e = f'Prescript configuration not correct. Type ({ type(yaml_dict[process_name]["prescript"]) }) not string.'
+                logger.error(e, exc_info=True); raise AssertionError (e)
+        
+        if 'postscript' not in process_info:
+            yaml_dict[process_name]['postscript'] = ''
+        else:
+            if type(yaml_dict[process_name]['postscript']) is not str:
+                e = f'Postscript configuration not correct. Type ({ type(yaml_dict[process_name]["postscript"]) }) not string.'
+                logger.error(e, exc_info=True); raise AssertionError (e)
 
 
 def parse_nfcore_config(yaml_dict, project):
@@ -292,7 +308,7 @@ def parse_input_samplesheet(yaml_dict, project, samplesheet, list_samplesheets):
             list_samplesheets.append((process_name, pipeline, path_to_process_csv))
 
 
-def parse_database_arguments(yaml_dict, list_dbs_to_download):
+def parse_database_arguments(yaml_dict, list_dbs_to_download, master_samplesheet_path):
     """
     Parse the YAML to check for undownloaded database files. 
 
@@ -338,7 +354,6 @@ def parse_database_arguments(yaml_dict, list_dbs_to_download):
                     elif (not is_aligner) & (is_pseudoaligner):
                         aligner = False
                         pseudoaligner = yaml_dict[process_name]['nfcore_config']['pseudo_aligner']
-                        gtf_string = 'gtf_corrected'
                         skip_aligner = check_entry(yaml_dict[process_name]['nfcore_config'], 'skip_alignment')
                         if not skip_aligner:
                             yaml_dict[process_name]['nfcore_config']['skip_alignment'] = True
@@ -443,8 +458,10 @@ def parse_database_arguments(yaml_dict, list_dbs_to_download):
 
                     input_format = check_entry(yaml_dict[process_name]['nfcore_config'], 'input_format')
                     if (not input_format):
-                        samplesheet = yaml_dict[process_name]['nfcore_config']['input']
-                        df = pd.read_csv(samplesheet, sep=',', dtype=str)
+                        # Read the master samplesheet, select the lines with the process name and return 
+                        # the format of the first file provided.
+                        df = pd.read_csv(master_samplesheet_path, sep=',', dtype=str)
+                        df = df.loc[[process_name in i.split(';') for i in df['process'].values]]
                         format = df['fastq_1'].iloc[0].split('.')[-1]
 
                         if format.upper() in ['FQ', 'FASTQ', 'GZ']:
