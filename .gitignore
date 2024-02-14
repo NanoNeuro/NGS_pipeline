@@ -2,11 +2,14 @@ data/
 database/
 results/
 projects/
-.nextflow/
-.nextflow.log*
-.vscode
 work/
 src/processing_functions/__pycache__
 null/
+src/to_be_processed
 .listing
 nohup.out
+.nextflow/
+.nextflow.log*
+.vscode
+*.log
+*.json
