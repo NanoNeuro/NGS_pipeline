@@ -30,6 +30,7 @@ DEV_PIPELINES = ['circrna']
 
 VALID_ORGANISMS = ['human', 'mouse']
 DICT_GENOMES = {'human': 'GRCh38', 'mouse': 'GRCm38'}
+DICT_SPECIES = {'human': 'hsa', 'mouse': 'mmu'}
 
 DEFAULT_RNASEQ_ALIGNER = 'star_salmon'
 DEFAULT_SCRNASEQ_ALIGNER = 'alevin'

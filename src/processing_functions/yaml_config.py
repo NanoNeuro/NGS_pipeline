@@ -5,7 +5,7 @@ import subprocess
 import yaml
 
 from .database_download import DICT_DBS
-from .global_vars_and_funcs import VALID_ORGANISMS, VALID_PIPELINES, VALID_PROFILERS, DEV_PIPELINES, DICT_GENOMES, NF_CONFIG_PIPELINES
+from .global_vars_and_funcs import VALID_ORGANISMS, VALID_PIPELINES, VALID_PROFILERS, DEV_PIPELINES, DICT_GENOMES, NF_CONFIG_PIPELINES, DICT_SPECIES
 from .global_vars_and_funcs import DEFAULT_CIRCRNA_TOOL, DEFAULT_CIRCDNA_TOOL, DEFAULT_CIRCRNA_MODULE, DEFAULT_MIRGENEDB, DEFAULT_RNASEQ_ALIGNER, DEFAULT_SCRNASEQ_ALIGNER
 from .global_vars_and_funcs import MAX_CPU, MAX_RAM, get_available_cpus
 
@@ -424,6 +424,11 @@ def parse_database_arguments(yaml_dict, list_dbs_to_download, master_samplesheet
 
                     if yaml_dict[process_name]['nfcore_config']['mirgenedb'] == True:
                         fillable_args += ['mirgenedb_gff', 'mirgenedb_mature', 'mirgenedb_hairpin']
+                        
+                        is_mirgene_species = check_entry(yaml_dict[process_name]['nfcore_config'], 'mirgene_species')
+                        if not is_mirgene_species:
+                            yaml_dict[process_name]['nfcore_config']['mirgene_species'] = DICT_SPECIES[organism]
+
                     else:
                         fillable_args += ['mirbase_gff', 'mirbase_mature', 'mirbase_hairpin']
 
