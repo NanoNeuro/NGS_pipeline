@@ -425,9 +425,9 @@ def parse_database_arguments(yaml_dict, list_dbs_to_download, master_samplesheet
                     if yaml_dict[process_name]['nfcore_config']['mirgenedb'] == True:
                         fillable_args += ['mirgenedb_gff', 'mirgenedb_mature', 'mirgenedb_hairpin']
                         
-                        is_mirgene_species = check_entry(yaml_dict[process_name]['nfcore_config'], 'mirgene_species')
-                        if not is_mirgene_species:
-                            yaml_dict[process_name]['nfcore_config']['mirgene_species'] = DICT_SPECIES[organism]
+                        is_mirgenedb_species = check_entry(yaml_dict[process_name]['nfcore_config'], 'mirgenedb_species')
+                        if not is_mirgenedb_species:
+                            yaml_dict[process_name]['nfcore_config']['mirgenedb_species'] = DICT_SPECIES[organism]
 
                     else:
                         fillable_args += ['mirbase_gff', 'mirbase_mature', 'mirbase_hairpin']
