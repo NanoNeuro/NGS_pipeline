@@ -81,10 +81,10 @@ def main():
 
     # download_DBs(list_dbs_to_download)
     database_download(list_dbs_to_download, project=args.project)
-    # os.system(f'work/{args.project}/database_download.sh')
+    os.system(f'work/{args.project}/database_download.sh')
 
     # run_pipeline(list_pipeline_commands)
-    # os.system(f'work/{args.project}/database_download.sh')
+    os.system(f'work/{args.project}/command.sh')
 
 
 
