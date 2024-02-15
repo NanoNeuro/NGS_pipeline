@@ -51,6 +51,8 @@ The directory structure is divided in several main folders:
 * `results/` contains the processed files of each project. In fact, each subfolder's name is the name of the project it belongs to.
 * `work/` contains intermediate files generated during the run of NGS_pipeline. This directory can be removed after the pipeline has run.
 
+This is an example of the directory structure, with two experiments, database, and two projects.
+
 ```bash
 data/
     Experiment_1/
@@ -131,13 +133,24 @@ README.md
 
 ## How to organize each project
 
-First, **projects and data do not need to share the same structure**. While it is common that one project usually uses the files of one experiment, you can use some files of one experiment, or files from different experiments in the same project. For instance, `project_A` is run with files from `Experiment_1` and `Experiment_2`, while `project_B` only uses files from  `Experiment_1`.
+First, **projects and data do not need to share the same structure**. While it is common that one project usually uses the files of one experiment, you can use some files of one experiment only, or files from different experiments in the same project. For instance, `project_A` is run with files from `Experiment_1` and `Experiment_2`, while `project_B` only uses files from  `Experiment_1`.
 
 All project folders must contain at least two files: `samplesheet.csv` and  `config.yaml` (they don't need to be named liked that exactly).
 
 The samplesheet file contains the information of the `data/` files that are going to be used in the pipeline.
 
 [SEGUIR POR AQUI]
+
+## How to run the code
+**First move to the source directory** (the one from which you can see `src`, `data`, `database`, etc.).
+
+If you have a prepared conda environment (look at [Creating the environment](#Creatingtheenvironment))
+
+Then run the command
+
+```
+
+```
 
 ## Samplesheet columns
 
