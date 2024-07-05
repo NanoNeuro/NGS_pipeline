@@ -60,7 +60,6 @@ def main():
                                                                          project=args.project, 
                                                                          samplesheet=args.samplesheet)
        
-
     # Write yaml dict into work/PROJECT/config.yaml
     write_yaml_file(yaml_dict=yaml_dict,
                     yaml_path=f"work/{args.project}/config.yaml")

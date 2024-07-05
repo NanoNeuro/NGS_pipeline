@@ -76,7 +76,6 @@ def parse_yaml_file(yaml_path, project, samplesheet):
     parse_database_arguments(yaml_dict, list_dbs_to_download, master_samplesheet_path=f"projects/{project}/{samplesheet}")
 
 
-
     return yaml_dict, list_samplesheets, list_dbs_to_download
 
 
@@ -321,7 +320,7 @@ def parse_database_arguments(yaml_dict, list_dbs_to_download, master_samplesheet
     For taxprofiler:
     - Check if any of the arguments of index download is false. If it is not, it will check the path of the index.
     """
-
+    
     for process_name in yaml_dict.keys():
         pipeline = yaml_dict[process_name]['general_config']['pipeline']
         organism = yaml_dict[process_name]['general_config']['organism']
@@ -366,7 +365,7 @@ def parse_database_arguments(yaml_dict, list_dbs_to_download, master_samplesheet
                     match aligner:
                         # TODO: checkear si en configs sin salmon hace falta el indice de salmon para el paso de infer_strandness                       
                         case 'star_salmon':
-                            fillable_args += ['star_index', 'salmon_index']
+                            fillable_args += ['star_index', 'salmon_index', 'transcript_fasta']
                         case 'star_rsem':
                             fillable_args += ['star_index', 'rsem_index']
                         case 'hisat2':
@@ -380,9 +379,9 @@ def parse_database_arguments(yaml_dict, list_dbs_to_download, master_samplesheet
 
                     match pseudoaligner:
                         case 'kallisto':
-                            fillable_args += ['kallisto_index', 'star_index', 'salmon_index',] # for some reason STAR index path appears so... 
+                            fillable_args += ['kallisto_index', 'star_index', 'salmon_index', 'transcript_fasta'] # for some reason STAR index path appears so... 
                         case 'salmon': 
-                            fillable_args += ['salmon_index', 'star_index',]
+                            fillable_args += ['salmon_index', 'star_index', 'transcript_fasta']
                         case False:
                             pass
                         case _:
@@ -553,10 +552,8 @@ def parse_database_arguments(yaml_dict, list_dbs_to_download, master_samplesheet
             list_dbs_to_download += [i for i in fillable_args if i not in list_dbs_to_download]
 
     # We sort the values in case there are some elements that have to be downloaded before others.
-    # For example, to download txp2gene we need to build the index of salmon first.        
-    list_dbs_to_download = sorted(list_dbs_to_download, key=custom_sort_dict_dbs)
-
-
+    # For example, to download txp2gene we need to build the index of salmon first.      
+    list_dbs_to_download.sort(key=custom_sort_dict_dbs, )
 
 ################################################################################################
 # TERCIARY FUNCTIONS
@@ -606,7 +603,7 @@ def sort_pipelines(yaml_dict):
 
 def retrieve_r_tag(pipeline):
     # Run the shell command and capture its output
-    command = f'curl -s --url https://api.github.com/repos/nf-core/{pipeline}/tags --header "Authorization: Bearer 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" \
+    command = f'curl -s --url https://api.github.com/repos/nf-core/{pipeline}/tags \
                 | grep -oP \'"name": "\\K([^\"]*)\' | head -n 1'
     output = subprocess.check_output(command, shell=True, text=True)
 
